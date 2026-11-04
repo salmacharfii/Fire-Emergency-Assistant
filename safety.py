@@ -1,10 +1,22 @@
 import re                                          # regular expressions for keyword matching
 
-FIRE_PATTERN = re.compile(                         # matches whole words only
-    r"\b(feuer|brand|brennt|rauch|flammen|fire|smoke|flames|burning)\b",   # German and English fire words
-    re.IGNORECASE,                                 # Feuer = feuer = FEUER
+FIRE_PATTERN = re.compile(                         # matches phrases that describe a fire happening NOW
+    r"\b("
+    r"there(?:'s| is) a fire"                      # "there is a fire", "there's a fire"
+    r"|(?:is|are|am|was|were|got|gets?)\s+on\s+fire"   # "the kitchen is on fire"
+    r"|on\s+fire"                                  # "on fire" in any other position
+    r"|(?:caught|catch(?:es)?|catching)\s+fire"    # "caught fire"
+    r"|fire\s+(?:has\s+)?broke(?:n)?\s+out"        # "fire broke out"
+    r"|(?:is|are|something(?:'s| is))\s+burning"   # "something is burning"
+    r"|burning\s+smell|smell\s+(?:of\s+)?(?:smoke|burning)"   # "I smell smoke"
+    r"|(?:full\s+of|filled\s+with|see|seeing)\s+smoke|smoke\s+(?:is\s+)?(?:coming|filling|blocks?|everywhere)"
+    r"|fire\s+alarm\s+(?:is\s+)?(?:sounding|going\s+off|ringing)"   # an alarm is ringing now
+    r"|es\s+brennt|feuer(?:\s+im|\s+in)?(?=\W|$)|brennt|rauch\s+(?:im|in|überall)|flammen"   # German
+    r")\b|\bfire!|\bfeuer!",                       # a shouted "Fire!"
+    re.IGNORECASE,
 )
-# \b means word border: "Brand" matches, but "Brandschutzordnung" does not, so a document question never triggers the banner.
+# Only phrases that describe a fire right now trigger the steps.
+# "fire hazard", "fire safety helpers" or "fire extinguisher" alone do not.
 
 FIXED_STEPS = [                                    # shown in this order, always the same
     "1. Stay calm",

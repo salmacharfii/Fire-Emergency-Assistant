@@ -24,7 +24,7 @@ def chunk_pages(pages):                            # pages in, chunks out
                     "source_doc": page["source_doc"],   # file name for the citation
                     "doc_type": page["doc_type"],       # company or standards
                     "page": page["page"],               # page number for the citation
-                    "language": "de" if page["source_doc"] in {"ASR-A2-2.pdf"} else "en",  # put the file names of your German PDFs in the set; every other file counts as English
+                    "language": "en",  # put the file names of your German PDFs in the set; every other file counts as English
                 },
             })
     return chunks                                  # list of chunk dictionaries

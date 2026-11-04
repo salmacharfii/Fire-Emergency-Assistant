@@ -1,7 +1,7 @@
 import re                                          # regular expressions
 
-PDF_SOURCE_PATTERN = re.compile(r"\[([^\]]+), p\.(\d+)\]")        # [file.pdf, p.3]; captures the file and the page
-DATA_SOURCE_PATTERN = re.compile(r"\[((?:zones|equipment)\.json)\]")   # [zones.json] or [equipment.json]
+PDF_SOURCE_PATTERN = re.compile(r"\[(?:source:\s*)?([^\]]+?), p\.(\d+)\]", re.IGNORECASE)   # [file.pdf, p.3], also [source: file.pdf, p.3]
+DATA_SOURCE_PATTERN = re.compile(r"\[(?:source:\s*)?((?:zones|equipment)\.json)\]", re.IGNORECASE)   # [zones.json], also [source: zones.json]
 
 REFUSAL = (                                        # the one refusal text for every case
     "I found nothing about this in the approved documents. "

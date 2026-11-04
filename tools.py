@@ -3,7 +3,7 @@ from datetime import date                          # today's date, for the overd
 from langchain.tools import tool                   # decorator that turns a function into an agent tool
 
 from config import ZONES_FILE, EQUIPMENT_FILE      # file paths from config.py
-from retrieval import retrieve, format_context     # the search from this day
+from retrieval import retrieve, format_context, filter_relevant   # the search plus the relevance check     # the search from this day
 
 
 def _load(path):                                   # reads one JSON file
@@ -24,8 +24,9 @@ def search_documents(query: str) -> str:
     """Search the approved fire safety documents (company rules and public standards).
     Use it for procedures, rules, extinguisher types and any 'what should I do' question.
     Returns text chunks, each labelled [file, p.N]."""
-    hits = retrieve(query)                         # Day 3 search, already cut by MAX_DISTANCE
-    if not hits:                                   # nothing close enough
+    hits = retrieve(query, top_k=8)                # wider net: 8 candidates, already cut by MAX_DISTANCE
+    hits = filter_relevant(query, hits)            # keep only chunks that directly answer; the agent can then cite nothing else
+    if not hits:                                   # nothing close enough, or nothing that really answers                         # nothing close enough
         return "NO_RESULTS: nothing relevant found in the approved documents."   # the agent must then refuse
     return format_context(hits)                    # labelled chunks
 
@@ -56,7 +57,9 @@ def check_equipment(zone: str) -> str:
         due = date.fromisoformat(e["next_check"])  # "2027-03-01" becomes a date
         status = "OVERDUE" if due < today else "ok"    # past due date = overdue
         lines.append(f"{e['id']} ({e['type']}): next check {e['next_check']}, {status}")
-    return "; ".join(lines) + " [equipment.json]"  # label for the guard
+    overdue = [e["id"] for e in items if date.fromisoformat(e["next_check"]) < today]   # ids with a passed due date
+    summary = f"Overdue items: {', '.join(overdue) if overdue else 'none'}."   # explicit answer, also when nothing is overdue
+    return "; ".join(lines) + f". {summary} [equipment.json]"   # label for the guard
 
 
 if __name__ == "__main__":                         # runs only with: py tools.py
