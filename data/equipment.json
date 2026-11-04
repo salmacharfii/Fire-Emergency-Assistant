@@ -1,0 +1,4 @@
+[
+  {"id": "EXT-001", "type": "CO2 extinguisher", "zone": "kitchen", "next_check": "2027-03-01"},
+  {"id": "EXT-002", "type": "ABC powder extinguisher", "zone": "open_office", "next_check": "2026-09-15"}
+]

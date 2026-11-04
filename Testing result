@@ -1,0 +1,6 @@
+py retrieval.py "Where is the assembly point?"
+py retrieval.py "Which extinguisher for an electrical fire?"
+py retrieval.py "How do I bake a cake?"
+
+
+==> The first two print chunks really answer the question. The cake question prints nothing. 

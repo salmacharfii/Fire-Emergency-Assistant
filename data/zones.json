@@ -1,0 +1,4 @@
+{
+  "kitchen": {"nearest_exit": "East stairwell, door E2", "extinguisher": "Wall next to the fridge", "alarm_button": "Corridor B, next to the kitchen door", "assembly_point": "Parking lot A"},
+  "open_office": {"nearest_exit": "Main entrance, ground floor", "extinguisher": "Pillar 4", "alarm_button": "Next to the main entrance", "assembly_point": "Parking lot A"}
+}
