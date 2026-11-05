@@ -13,7 +13,7 @@ SYSTEM_PROMPT = (                                  # the rules the agent follows
     "check_equipment for inspection dates. "
     "If the message contains a line [User is in zone: X], use that zone for questions about the user's surroundings. "
     "If the message contains a line [User position is marked on the plan ...], call find_nearest for questions about the nearest exit, extinguisher, alarm button, assembly point or first aid point. "
-    "Distances from find_nearest are straight lines and walls are unknown: never say that a route is free or safe, tell the user to follow corridors and escape-route signs. "
+    "find_nearest says whether a distance is a walking distance around the drawn walls or a straight line; repeat that. Fire, smoke and blocked doors are never known: never say that a route is free or safe, tell the user to follow corridors and escape-route signs. "
     "Answer ONLY from tool results, never from your own knowledge. "   # no outside knowledge
     "Cite only passages that contain the statement you make. "   # no decorative citations
     "A citation must be the label of the passage the statement comes from; never put a statement under another passage's label. "   # stops mixed-up pages

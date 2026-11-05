@@ -11,7 +11,7 @@ from config import WHISPER_MODEL, ADMIN_TOKEN, PLAN_IMAGE_DIR, STATIC_DIR   # (t
 from safety import is_fire_emergency, FIXED_STEPS  # fixed steps
 from agent import run_agent                        # the LangChain agent
 from guard import check_answer, extract_sources    # citation check
-from tools import list_zones, _zone_key, POSITIONS, FOUND   # zone names for the UI, session state for the plan tool
+from tools import list_zones, _zone_key, POSITIONS, FOUND, ROUTES   # zone names for the UI, session state for the plan tool
 from plan import load_plan, save_plan, clean_plan, nearest_room   # the building plan
 
 app = FastAPI(title="Fire Emergency Assistant")    # the application object that uvicorn runs
@@ -45,6 +45,7 @@ class AskResponse(BaseModel):                      # what the caller receives
     mode: str                                      # "answer" or "refused"
     safety_steps: list[str]                        # fixed steps, empty unless fire wording was found
     highlights: list[str] = []                     # marker ids the UI should highlight on the plan
+    route: list[list[float]] = []                  # corner points [x, y] of the walking route to the nearest result
 
 
 def require_admin(token):                          # stops everybody without the admin token
@@ -137,19 +138,21 @@ def ask(req: AskRequest):
     else:
         POSITIONS.pop(req.session_id, None)        # no position: forget an old one
     FOUND.pop(req.session_id, None)                # clear highlights from the previous question
+    ROUTES.pop(req.session_id, None)               # and the route
     steps = FIXED_STEPS if is_fire_emergency(req.question) else []   # decided before any AI call
     raw = run_agent(req.question, req.session_id, zone, room, req.position is not None)   # the agent picks tools and answers
     answer, mode = check_answer(raw)               # guard: citation present or refuse
     sources = [Source(**s) for s in extract_sources(answer)] if mode == "answer" else []   # sources only for real answers
     highlights = FOUND.pop(req.session_id, []) if mode == "answer" else []   # only for answers that passed the guard
-    return AskResponse(answer=answer, sources=sources, mode=mode, safety_steps=steps, highlights=highlights)
+    route = ROUTES.pop(req.session_id, []) if mode == "answer" else []
+    return AskResponse(answer=answer, sources=sources, mode=mode, safety_steps=steps, highlights=highlights, route=route)
 
 
 try:
-    PLAN_IMAGE_DIR.mkdir(parents=True, exist_ok=True)
+    PLAN_IMAGE_DIR.mkdir(parents=True, exist_ok=True)   # the folder must exist before it can be served
 except OSError:
-    pass                                           # read-only disk on Vercel: the folder comes from git
+    pass                                           # read-only disk (e.g. Vercel): the folder comes from git
 if PLAN_IMAGE_DIR.exists():
-    app.mount("/plan-images", StaticFiles(directory=str(PLAN_IMAGE_DIR)), name="plan-images")
-if STATIC_DIR.exists():                            # only when running locally with a static folder
-    app.mount("/", StaticFiles(directory=str(STATIC_DIR), html=True), name="static")   # must stay the LAST line
+    app.mount("/plan-images", StaticFiles(directory=str(PLAN_IMAGE_DIR)), name="plan-images")   # uploaded plan images
+if STATIC_DIR.exists():                            # only when the static folder is there
+    app.mount("/", StaticFiles(directory=str(STATIC_DIR), html=True), name="static")   # the web page; must stay the LAST line

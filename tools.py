@@ -9,6 +9,7 @@ from plan import load_plan, nearest, describe      # the building plan the admin
 
 POSITIONS = {}                                     # session_id -> {"floor", "x", "y"}; set by the API before every question
 FOUND = {}                                         # session_id -> marker ids found by find_nearest; the API sends them to the UI
+ROUTES = {}                                        # session_id -> corner points of the walking route to the nearest result
 
 THING_TYPES = {                                    # what the agent may ask for -> marker types on the plan
     "exit": {"exit", "stairs"},
@@ -94,8 +95,16 @@ def find_nearest(thing: str, config: RunnableConfig) -> str:
     if not found:
         return f"NO_RESULTS: nothing of type '{key}' is marked on the user's floor."
     FOUND[session_id] = [r["marker"]["id"] for r in found]    # the UI highlights these on the plan
+    if found[0].get("route"):                      # walls are drawn: the UI also draws the way to the nearest result
+        ROUTES[session_id] = found[0]["route"]
     lines = "; ".join(describe(r) for r in found)
-    return (f"Nearest {key} from the user's position (straight line, walls are not known): {lines}. "
+    if found[0].get("walking"):
+        basis = "walking distance around the walls drawn on the plan; fire, smoke and blocked doors are not known"
+    elif found[0].get("blocked"):
+        basis = "straight line, because no walkable route was found on the drawn plan"
+    else:
+        basis = "straight line, walls are not known"
+    return (f"Nearest {key} from the user's position ({basis}): {lines}. "
             f"Tell the user to follow corridors and escape-route signs. [plan.json]")   # label for the guard
 
 

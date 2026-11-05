@@ -1,3 +1,4 @@
+import heapq                                       # shortest-path search around the walls
 import json                                        # reads and writes the plan file
 import math                                        # distances and angles
 import os                                          # atomic file replace
@@ -79,11 +80,20 @@ def clean_plan(raw):                               # checks an uploaded plan and
             if m["t"] == "ext":
                 m["k"] = mr.get("k") if mr.get("k") in EXT_KINDS else "abc"
             markers.append(m)
+        walls = []
+        for wr in (fr.get("walls") or [])[:2000]:  # wall lines drawn by the admin, as fractions of the plan
+            if not isinstance(wr, dict):
+                continue
+            c = [_num(wr.get(k), 0, 1) for k in ("x1", "y1", "x2", "y2")]
+            if None in c or (abs(c[0] - c[2]) < 0.0005 and abs(c[1] - c[3]) < 0.0005):
+                continue                           # broken or zero-length walls are dropped
+            walls.append({"x1": round(c[0], 4), "y1": round(c[1], 4), "x2": round(c[2], 4), "y2": round(c[3], 4)})
         floors.append({
             "id": fid, "name": str(fr.get("name", ""))[:40], "image": image,
             "aspect": round(_num(fr.get("aspect"), 0.2, 5, 1.5), 4),
             "widthM": _num(fr.get("widthM"), 1, 2000, None),   # plan width in metres; None = unknown scale
             "markers": markers,
+            "walls": walls,
         })
     return {"site": site, "floors": floors}
 
@@ -97,7 +107,99 @@ def direction(dx, dy):                             # words for the direction of 
     return DIRECTIONS[int(round(angle / 45)) % 8] + " on the plan"
 
 
-def nearest(plan, floor_id, x, y, types, kind=None, n=3):   # markers of the given types, closest first (straight line)
+def _grid(floor):                                  # turns the walls into a blocked/free grid of about 0.5 m cells
+    width = floor.get("widthM")
+    aspect = floor.get("aspect") or 1.5
+    cols = int(min(200, max(60, round(width / 0.5))))
+    rows = max(10, int(round(cols / aspect)))
+    blocked = bytearray(cols * rows)
+    for w in floor.get("walls") or []:
+        length = max(abs(w["x2"] - w["x1"]) * cols, abs(w["y2"] - w["y1"]) * rows)
+        steps = max(1, int(length * 3))            # three samples per cell, so the line has no holes
+        for i in range(steps + 1):
+            t = i / steps
+            cx = min(cols - 1, int((w["x1"] + (w["x2"] - w["x1"]) * t) * cols))
+            cy = min(rows - 1, int((w["y1"] + (w["y2"] - w["y1"]) * t) * rows))
+            blocked[cy * cols + cx] = 1
+    return cols, rows, blocked, width / cols, (width / aspect) / rows   # last two: metres per cell, horizontal and vertical
+
+
+def _cell(cols, rows, x, y):                       # grid cell (row, column) of a point on the plan
+    return min(rows - 1, max(0, int(y * rows))), min(cols - 1, max(0, int(x * cols)))
+
+
+def _free_cell(cols, rows, blocked, r, c, radius=6):   # the nearest walkable cell (a marker may sit on a wall line)
+    if not blocked[r * cols + c]:
+        return r, c
+    for rad in range(1, radius + 1):
+        for dr in range(-rad, rad + 1):
+            for dc in range(-rad, rad + 1):
+                if max(abs(dr), abs(dc)) != rad:
+                    continue
+                rr, cc = r + dr, c + dc
+                if 0 <= rr < rows and 0 <= cc < cols and not blocked[rr * cols + cc]:
+                    return rr, cc
+    return None
+
+
+def _clear(cols, rows, blocked, a, b):             # True when the straight line between two cells crosses no wall
+    (r1, c1), (r2, c2) = a, b
+    steps = max(1, int(max(abs(r2 - r1), abs(c2 - c1)) * 4))
+    for i in range(steps + 1):
+        t = i / steps
+        r, c = int(round(r1 + (r2 - r1) * t)), int(round(c1 + (c2 - c1) * t))
+        if blocked[r * cols + c]:
+            return False
+    return True
+
+
+def _walk_all(cols, rows, blocked, dx, dy, start):    # shortest walking distance (metres) from start to every cell
+    inf = float("inf")
+    dist = [inf] * (cols * rows)
+    parent = [-1] * (cols * rows)
+    dist[start[0] * cols + start[1]] = 0.0
+    queue = [(0.0, start[0], start[1])]
+    diag = math.hypot(dx, dy)
+    moves = [(-1, 0, dy), (1, 0, dy), (0, -1, dx), (0, 1, dx), (-1, -1, diag), (-1, 1, diag), (1, -1, diag), (1, 1, diag)]
+    while queue:
+        d, r, c = heapq.heappop(queue)
+        if d > dist[r * cols + c]:
+            continue
+        for mr, mc, cost in moves:
+            rr, cc = r + mr, c + mc
+            if not (0 <= rr < rows and 0 <= cc < cols) or blocked[rr * cols + cc]:
+                continue
+            if mr and mc and (blocked[r * cols + cc] or blocked[rr * cols + c]):
+                continue                           # no cutting a wall corner diagonally
+            nd = d + cost
+            if nd < dist[rr * cols + cc]:
+                dist[rr * cols + cc] = nd
+                parent[rr * cols + cc] = r * cols + c
+                heapq.heappush(queue, (nd, rr, cc))
+    return dist, parent
+
+
+def _route(cols, rows, blocked, parent, goal, x, y, gx, gy):   # corner points of the walking route, as plan fractions
+    cells, i = [], goal[0] * cols + goal[1]
+    while i != -1:
+        cells.append((i // cols, i % cols))
+        i = parent[i]
+    cells.reverse()                                # start ... goal
+    keep, i = [cells[0]], 0
+    while i < len(cells) - 1:                      # pull the string tight: jump to the farthest cell that is in sight
+        j = len(cells) - 1
+        while j > i + 1 and not _clear(cols, rows, blocked, cells[i], cells[j]):
+            j -= 1
+        keep.append(cells[j])
+        i = j
+    pts = [[round(x, 4), round(y, 4)]]
+    for r, c in keep[1:-1]:
+        pts.append([round((c + 0.5) / cols, 4), round((r + 0.5) / rows, 4)])
+    pts.append([round(gx, 4), round(gy, 4)])
+    return pts
+
+
+def nearest(plan, floor_id, x, y, types, kind=None, n=3, walk=True):   # markers of the given types, closest first
     floor = get_floor(plan, floor_id)
     if floor is None:
         return []
@@ -111,11 +213,31 @@ def nearest(plan, floor_id, x, y, types, kind=None, n=3):   # markers of the giv
         found.append({"marker": m, "distance": math.hypot(dx, dy),
                       "direction": direction(dx, dy), "scaled": bool(floor.get("widthM"))})
     found.sort(key=lambda r: r["distance"])
+    if walk and found and floor.get("walls") and floor.get("widthM"):   # walls are drawn: measure the way a person walks
+        cols, rows, blocked, cw, ch = _grid(floor)
+        start = _free_cell(cols, rows, blocked, *_cell(cols, rows, x, y))
+        if start is not None:
+            dist, parent = _walk_all(cols, rows, blocked, cw, ch, start)
+            walked = []
+            for r in found:
+                m = r["marker"]
+                goal = _free_cell(cols, rows, blocked, *_cell(cols, rows, m["x"], m["y"]))
+                if goal is None or dist[goal[0] * cols + goal[1]] == float("inf"):
+                    continue                       # no way there through the drawn walls and doors
+                pts = _route(cols, rows, blocked, parent, goal, x, y, m["x"], m["y"])
+                first = ((pts[1][0] - pts[0][0]) * width, (pts[1][1] - pts[0][1]) * height)
+                walked.append({"marker": m, "distance": dist[goal[0] * cols + goal[1]], "direction": direction(*first),
+                               "scaled": True, "walking": True, "route": pts})
+            walked.sort(key=lambda r: r["distance"])
+            if walked:
+                return walked[:n]
+        for r in found:
+            r["blocked"] = True                    # walls are drawn but no walkable way was found: say so
     return found[:n]
 
 
 def nearest_room(plan, floor_id, x, y):            # label of the closest room marker, or ""
-    found = nearest(plan, floor_id, x, y, {"room"}, n=1)
+    found = nearest(plan, floor_id, x, y, {"room"}, n=1, walk=False)
     return found[0]["marker"]["l"] if found else ""
 
 
@@ -125,4 +247,8 @@ def describe(r):                                   # one result as a short sente
     if m["t"] == "ext" and m.get("k"):
         name += f" ({KIND_NAMES[m['k']]})"
     distance = f"about {round(r['distance'])} m" if r["scaled"] else "distance unknown"
+    if r.get("walking"):                           # walked around the drawn walls
+        return f"{name}: {distance} walking, first head {r['direction']}"
+    if r.get("blocked"):                           # walls are drawn, but the search found no way
+        return f"{name}: {distance} in a straight line, {r['direction']} (no walkable route found on the plan, a door may be missing)"
     return f"{name}: {distance}, {r['direction']}"
