@@ -88,12 +88,22 @@ def clean_plan(raw):                               # checks an uploaded plan and
             if None in c or (abs(c[0] - c[2]) < 0.0005 and abs(c[1] - c[3]) < 0.0005):
                 continue                           # broken or zero-length walls are dropped
             walls.append({"x1": round(c[0], 4), "y1": round(c[1], 4), "x2": round(c[2], 4), "y2": round(c[3], 4)})
+        doors = []
+        for dr in (fr.get("doors") or [])[:500]:   # doors: openings in the walls, 'h' = in a horizontal wall, 'v' = in a vertical wall
+            if not isinstance(dr, dict):
+                continue
+            dx_, dy_ = _num(dr.get("x"), 0, 1), _num(dr.get("y"), 0, 1)
+            if dx_ is None or dy_ is None:
+                continue
+            doors.append({"x": round(dx_, 4), "y": round(dy_, 4), "o": "v" if dr.get("o") == "v" else "h",
+                          "w": round(_num(dr.get("w"), 0.5, 6, 1.0), 2)})   # width in metres
         floors.append({
             "id": fid, "name": str(fr.get("name", ""))[:40], "image": image,
             "aspect": round(_num(fr.get("aspect"), 0.2, 5, 1.5), 4),
             "widthM": _num(fr.get("widthM"), 1, 2000, None),   # plan width in metres; None = unknown scale
             "markers": markers,
             "walls": walls,
+            "doors": doors,
         })
     return {"site": site, "floors": floors}
 
@@ -121,7 +131,20 @@ def _grid(floor):                                  # turns the walls into a bloc
             cx = min(cols - 1, int((w["x1"] + (w["x2"] - w["x1"]) * t) * cols))
             cy = min(rows - 1, int((w["y1"] + (w["y2"] - w["y1"]) * t) * rows))
             blocked[cy * cols + cx] = 1
-    return cols, rows, blocked, width / cols, (width / aspect) / rows   # last two: metres per cell, horizontal and vertical
+    cw, ch = width / cols, (width / aspect) / rows  # metres per cell, horizontal and vertical
+    for d in floor.get("doors") or []:             # a door opens the wall for its width (and about 1.5 m of depth)
+        r0, c0 = int(d["y"] * rows), int(d["x"] * cols)
+        half = d["w"] / 2
+        if d.get("o") == "v":
+            rr = range(max(0, int(round(r0 - half / ch))), min(rows, int(round(r0 + half / ch)) + 1))
+            cc = range(max(0, c0 - 1), min(cols, c0 + 2))
+        else:
+            rr = range(max(0, r0 - 1), min(rows, r0 + 2))
+            cc = range(max(0, int(round(c0 - half / cw))), min(cols, int(round(c0 + half / cw)) + 1))
+        for r in rr:
+            for c in cc:
+                blocked[r * cols + c] = 0
+    return cols, rows, blocked, cw, ch   # last two: metres per cell, horizontal and vertical
 
 
 def _cell(cols, rows, x, y):                       # grid cell (row, column) of a point on the plan

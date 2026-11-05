@@ -69,6 +69,8 @@ button{cursor:pointer}
 .stage svg.walls{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:2}
 .stage svg.walls line{stroke:#B3261E;stroke-width:3;stroke-linecap:round;opacity:.85;vector-effect:non-scaling-stroke}
 .stage svg.walls line.sel{stroke:#FFC400;stroke-width:5;opacity:1}
+.stage svg.walls line.door{stroke:#1F7A4F;stroke-width:6;stroke-linecap:butt;opacity:1}
+.stage svg.walls line.dhit{stroke:transparent;stroke-width:16;pointer-events:stroke;cursor:pointer}
 .stage svg.walls line.whit{stroke:transparent;stroke-width:14;pointer-events:stroke;cursor:pointer}
 .wdot{position:absolute;width:12px;height:12px;transform:translate(-50%,-50%);border-radius:50%;background:#B3261E;border:2px solid #fff;z-index:3;pointer-events:none}
 .mk{position:absolute;transform:translate(-50%,-50%);width:30px;height:30px;border-radius:50%;border:2px solid #fff;background:var(--mc);color:#fff;display:grid;place-items:center;padding:0;box-shadow:0 1px 4px rgba(0,0,0,.45);z-index:3;cursor:pointer}
@@ -192,10 +194,12 @@ button{cursor:pointer}
           <div class="row">
             <button class="btn" id="w-tool" type="button" aria-pressed="false">Draw walls</button>
             <button class="btn" id="w-sel" type="button" aria-pressed="false">Select wall</button>
+            <button class="btn" id="d-tool" type="button" aria-pressed="false">Add door</button>
+            <div class="field" style="flex:0 0 130px"><label for="d-width">Door width (m)</label><input id="d-width" type="number" min="0.6" max="5" step="0.1" value="1" inputmode="decimal"></div>
             <button class="btn" id="w-undo" type="button">Undo last wall</button>
             <button class="btn danger" id="w-del" type="button" hidden>Delete selected wall</button>
           </div>
-          <p class="hint" id="w-hint" hidden>Draw walls: click where a wall starts, then where it ends. Leave a gap at least 1 m wide for every door. Press Esc to cancel a wall you started. Select wall: click a wall, then delete it. Walls are only used to work out walking routes and are not shown to employees.</p>
+          <p class="hint" id="w-hint" hidden>Draw walls: click where a wall starts, then where it ends. Walls are always drawn horizontal or vertical. Select wall: click a wall, then delete it. Add door: click on a wall to open a door there (green); click a green door again to remove it. Set the plan width in metres first. Walls are only used to work out walking routes and are not shown to employees.</p>
           <div class="row" id="a-sel" hidden>
             <div class="field"><label for="s-label">Label</label><input id="s-label" type="text" maxlength="60"></div>
             <div class="field"><label for="s-type">Type</label><select id="s-type"></select></div>
@@ -338,7 +342,7 @@ function renderStage(){
     b.textContent = S.editing ? "Upload a plan image for this floor." : "No image for this floor.";
     stage.appendChild(b);
   }
-  if(S.editing && ((f.walls && f.walls.length) || S.wallStart)){      // the walls the admin has drawn
+  if(S.editing && ((f.walls && f.walls.length) || (f.doors && f.doors.length) || S.wallStart)){      // the walls the admin has drawn
     const wv = document.createElementNS(NS,"svg");
     wv.setAttribute("class","walls"); wv.setAttribute("viewBox","0 0 100 100"); wv.setAttribute("preserveAspectRatio","none");
     f.walls.forEach((w,i) => {
@@ -350,6 +354,16 @@ function renderStage(){
       };
       wv.appendChild(mkLine(i === S.wsel ? "sel" : ""));
       if(S.tool === "wallsel"){ const h = mkLine("whit"); h.dataset.i = String(i); wv.appendChild(h); }
+    });
+    if(f.widthM) (f.doors || []).forEach((d,i) => {                   // doors: green, as wide as set
+      const hx = d.o === "v" ? 0 : (d.w/2)/f.widthM, hy = d.o === "v" ? (d.w/2)/(f.widthM/(f.aspect||1.5)) : 0;
+      const mkDoor = cls => {
+        const l = document.createElementNS(NS,"line");
+        l.setAttribute("x1",(d.x-hx)*100); l.setAttribute("y1",(d.y-hy)*100); l.setAttribute("x2",(d.x+hx)*100); l.setAttribute("y2",(d.y+hy)*100);
+        l.setAttribute("class",cls); return l;
+      };
+      wv.appendChild(mkDoor("door"));
+      if(S.tool === "door"){ const h = mkDoor("dhit"); h.dataset.d = String(i); wv.appendChild(h); }
     });
     stage.appendChild(wv);
     if(S.wallStart){
@@ -463,7 +477,7 @@ stage.addEventListener("click", e => {
   const f = cur(); if(!f) return;
   const mk = e.target.closest(".mk");
   if(S.editing){
-    if(S.tool === "wall" || S.tool === "wallsel"){ if(!mk) wallClick(f,e); return; }
+    if(S.tool === "wall" || S.tool === "wallsel" || S.tool === "door"){ if(!mk) wallClick(f,e); return; }
     if(mk) return;
     const p = stagePoint(e);
     if(S.tool) addMarker(f,p.x,p.y); else { S.sel = null; renderStage(); syncSel(); }
@@ -648,6 +662,7 @@ function snapPoint(f,p){                           // joins a new wall end to an
 function wallClick(f,e){
   f.walls = f.walls || [];
   const a = f.aspect || 1.5;
+  if(S.tool === "door"){ doorClick(f,e); return; }
   if(S.tool === "wallsel"){                        // select mode: pick a wall to delete it
     const hit = e.target.closest && e.target.closest(".whit");
     S.wsel = hit ? parseInt(hit.dataset.i,10) : null; renderStage(); syncAdmin(); return;
@@ -656,13 +671,33 @@ function wallClick(f,e){
   if(!S.wallStart){ S.wallStart = snapPoint(f,p); S.wsel = null; renderStage(); syncAdmin(); return; }
   const s = S.wallStart;
   let q = {x:p.x, y:p.y};
-  if(Math.abs(q.y - s.y) < Math.abs(q.x - s.x)*a*0.08) q.y = s.y;          // nearly horizontal: make it exactly horizontal
-  else if(Math.abs(q.x - s.x)*a < Math.abs(q.y - s.y)*0.08) q.x = s.x;     // nearly vertical: make it exactly vertical
+  if(Math.abs(q.x - s.x)*a >= Math.abs(q.y - s.y)) q.y = s.y; else q.x = s.x;   // walls are always horizontal or vertical (90 degrees)
   q = snapPoint(f,q);
+  if(q.x !== s.x && q.y !== s.y){ if(Math.abs(q.x - s.x)*a >= Math.abs(q.y - s.y)) q.y = s.y; else q.x = s.x; }   // a snap must not tilt the wall
   S.wallStart = null;
   if(Math.hypot((q.x-s.x)*a, q.y-s.y) < 0.004){ renderStage(); syncAdmin(); return; }   // too short: ignore
   f.walls.push({x1:+s.x.toFixed(4), y1:+s.y.toFixed(4), x2:+q.x.toFixed(4), y2:+q.y.toFixed(4)});
   S.wsel = f.walls.length - 1; queueSave(); renderStage(); syncAdmin();
+}
+function doorClick(f,e){                           // click a wall: open a door; click a green door: remove it
+  f.doors = f.doors || [];
+  const hit = e.target.closest && e.target.closest(".dhit");
+  if(hit){ f.doors.splice(parseInt(hit.dataset.d,10),1); queueSave(); renderStage(); return; }
+  if(!f.widthM){ setInfo("Set the plan width in metres first, then add doors."); return; }
+  const a = f.aspect || 1.5, p = stagePoint(e);
+  let best = null, bd = 0.02;
+  (f.walls || []).forEach(w => {                   // the closest point on the closest wall
+    const vx = (w.x2-w.x1)*a, vy = w.y2-w.y1, len2 = vx*vx + vy*vy;
+    if(!len2) return;
+    const t = Math.min(1, Math.max(0, (((p.x-w.x1)*a)*vx + (p.y-w.y1)*vy) / len2));
+    const qx = w.x1 + (w.x2-w.x1)*t, qy = w.y1 + (w.y2-w.y1)*t;
+    const d = Math.hypot((qx-p.x)*a, qy-p.y);
+    if(d < bd){ bd = d; best = {x:qx, y:qy, o: Math.abs(vx) >= Math.abs(vy) ? "h" : "v"}; }
+  });
+  if(!best){ setInfo("Click on a wall to put a door there."); return; }
+  const wd = Math.min(5, Math.max(0.6, parseFloat($("d-width").value) || 1));
+  f.doors.push({x:+best.x.toFixed(4), y:+best.y.toFixed(4), o:best.o, w:+wd.toFixed(2)});
+  queueSave(); renderStage();
 }
 function addMarker(f,x,y){
   const n = f.markers.filter(m => m.t === S.tool).length + 1;
@@ -672,7 +707,7 @@ function addMarker(f,x,y){
 }
 function createFloor(){
   const n = S.plan.floors.length;
-  const f = {id:newId("f"), name: n ? "Floor " + (n+1) : "Ground floor", image:null, aspect:1.5, widthM:null, markers:[], walls:[]};
+  const f = {id:newId("f"), name: n ? "Floor " + (n+1) : "Ground floor", image:null, aspect:1.5, widthM:null, markers:[], walls:[], doors:[]};
   S.plan.floors.push(f); S.floorId = f.id; S.sel = null; S.hl = []; S.me = null;
   queueSave(); renderAll();
 }
@@ -702,7 +737,8 @@ function syncAdmin(){
   document.querySelectorAll("#a-palette button").forEach(b => b.setAttribute("aria-pressed", S.tool === b.dataset.k ? "true" : "false"));
   $("w-tool").setAttribute("aria-pressed", S.tool === "wall" ? "true" : "false");
   $("w-sel").setAttribute("aria-pressed", S.tool === "wallsel" ? "true" : "false");
-  $("w-hint").hidden = S.tool !== "wall" && S.tool !== "wallsel";
+  $("d-tool").setAttribute("aria-pressed", S.tool === "door" ? "true" : "false");
+  $("w-hint").hidden = S.tool !== "wall" && S.tool !== "wallsel" && S.tool !== "door";
   $("w-del").hidden = S.wsel === null;
   $("f-del").textContent = S.delArmed ? "Really delete?" : "Delete floor";
   if(f){ setField($("f-name"), f.name || ""); setField($("f-width"), f.widthM || ""); }
@@ -726,6 +762,7 @@ function buildAdmin(){
 }
 $("w-tool").addEventListener("click", () => { S.tool = (S.tool === "wall" ? null : "wall"); S.wallStart = null; S.wsel = null; renderStage(); syncAdmin(); });
 $("w-sel").addEventListener("click", () => { S.tool = (S.tool === "wallsel" ? null : "wallsel"); S.wallStart = null; S.wsel = null; renderStage(); syncAdmin(); });
+$("d-tool").addEventListener("click", () => { S.tool = (S.tool === "door" ? null : "door"); S.wallStart = null; S.wsel = null; renderStage(); syncAdmin(); });
 $("w-undo").addEventListener("click", () => {
   const f = cur(); if(!f || !f.walls || !f.walls.length) return;
   f.walls.pop(); S.wsel = null; S.wallStart = null; queueSave(); renderStage(); syncAdmin();
@@ -811,7 +848,7 @@ async function loadPlan(){
     const r = await fetch("/plan"); if(!r.ok) throw new Error();
     const p = await r.json();
     S.plan = {site:p.site || {name:"",note:""}, floors:Array.isArray(p.floors) ? p.floors : []};
-    S.plan.floors.forEach(f => { f.markers = Array.isArray(f.markers) ? f.markers : []; f.walls = Array.isArray(f.walls) ? f.walls : []; });
+    S.plan.floors.forEach(f => { f.markers = Array.isArray(f.markers) ? f.markers : []; f.walls = Array.isArray(f.walls) ? f.walls : []; f.doors = Array.isArray(f.doors) ? f.doors : []; });
   }catch(e){ setInfo("The building plan could not be loaded."); }
   renderAll(); if(!S.editing) defaultInfo();
 }
