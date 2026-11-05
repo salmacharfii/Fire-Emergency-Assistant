@@ -98,7 +98,15 @@ def put_plan(body: dict = Body(...), x_admin_token: str | None = Header(default=
         plan = clean_plan(body)                    # drops unknown marker types, clamps coordinates
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e))
+    used_before = {f.get("image") for f in load_plan().get("floors", [])}   # images the old plan used
     save_plan(plan)
+    used_now = {f.get("image") for f in plan["floors"]}
+    for name in used_before - used_now:            # a floor or the whole plan was deleted: remove its image file too
+        if name:
+            try:
+                (PLAN_IMAGE_DIR / name).unlink()
+            except OSError:
+                pass
     return plan
 
 

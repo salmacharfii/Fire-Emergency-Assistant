@@ -218,6 +218,9 @@ button{cursor:pointer}
           </div>
           <p class="hint">PNG, JPG, WebP or SVG up to 10 MB. Export a PDF to an image first. The width in metres is used to estimate distances.</p>
           <div class="row">
+            <button class="btn danger" id="p-wipe" type="button">Delete the whole building plan</button>
+          </div>
+          <div class="row">
             <div class="field"><label for="site-name">Site name</label><input id="site-name" type="text" maxlength="80"></div>
           </div>
           <div class="row">
@@ -297,6 +300,7 @@ const NS = "http://www.w3.org/2000/svg";
 const iconSvg = t => '<svg viewBox="0 0 24 24" aria-hidden="true">' + (ICONS[t]||"") + '</svg>';
 const setInfo = s => { $("mapinfo").textContent = s || ""; };
 const setStatus = s => { statusEl.textContent = s || ""; };
+const editOn = () => S.editing && !!S.token;       // editing tools work only after the admin token was accepted
 
 /* ---------- plan helpers ---------- */
 function cur(){
@@ -325,7 +329,7 @@ function nearestRoom(){
 function renderStage(){
   const f = cur();
   stage.textContent = "";
-  stage.classList.toggle("editing", S.editing && !!f);
+  stage.classList.toggle("editing", editOn() && !!f);
   if(!f){
     stage.style.aspectRatio = "1.5";
     const b = document.createElement("div"); b.className = "blank";
@@ -339,10 +343,10 @@ function renderStage(){
     stage.appendChild(img);
   }else{
     const b = document.createElement("div"); b.className = "blank";
-    b.textContent = S.editing ? "Upload a plan image for this floor." : "No image for this floor.";
+    b.textContent = editOn() ? "Upload a plan image for this floor." : "No image for this floor.";
     stage.appendChild(b);
   }
-  if(S.editing && ((f.walls && f.walls.length) || (f.doors && f.doors.length) || S.wallStart)){      // the walls the admin has drawn
+  if(editOn() && ((f.walls && f.walls.length) || (f.doors && f.doors.length) || S.wallStart)){      // the walls the admin has drawn
     const wv = document.createElementNS(NS,"svg");
     wv.setAttribute("class","walls"); wv.setAttribute("viewBox","0 0 100 100"); wv.setAttribute("preserveAspectRatio","none");
     f.walls.forEach((w,i) => {
@@ -391,7 +395,7 @@ function renderStage(){
   f.markers.forEach(m => {
     const b = document.createElement("button");
     b.type = "button";
-    b.className = "mk t-" + m.t + (S.hl.indexOf(m.id)>=0 ? " hl" : "") + (S.sel===m.id && S.editing ? " sel" : "");
+    b.className = "mk t-" + m.t + (S.hl.indexOf(m.id)>=0 ? " hl" : "") + (S.sel===m.id && editOn() ? " sel" : "");
     b.style.left = (m.x*100) + "%"; b.style.top = (m.y*100) + "%";
     b.dataset.id = m.id;
     b.setAttribute("aria-label", TYPE_NAMES[m.t] + (m.l ? ": " + m.l : ""));
@@ -476,7 +480,8 @@ stage.addEventListener("click", e => {
   if(S.dragMoved){ S.dragMoved = false; return; }
   const f = cur(); if(!f) return;
   const mk = e.target.closest(".mk");
-  if(S.editing){
+  if(S.editing && !S.token){ setInfo("Editing is locked. Enter the admin token below to change the plan."); return; }
+  if(editOn()){
     if(S.tool === "wall" || S.tool === "wallsel" || S.tool === "door"){ if(!mk) wallClick(f,e); return; }
     if(mk) return;
     const p = stagePoint(e);
@@ -487,7 +492,7 @@ stage.addEventListener("click", e => {
   const p = stagePoint(e); setMe(p.x,p.y);
 });
 stage.addEventListener("pointerdown", e => {
-  if(!S.editing) return;
+  if(!editOn()) return;
   const mk = e.target.closest(".mk"), f = cur(); if(!mk || !f) return;
   const m = f.markers.find(x => x.id === mk.dataset.id); if(!m) return;
   S.sel = m.id; S.drag = {id:m.id, el:mk, moved:false};
@@ -625,13 +630,17 @@ function saveState(msg, isErr){
   clearTimeout(fadeTimer);
   if(msg === "Saved") fadeTimer = setTimeout(() => { el.textContent = ""; }, 2500);
 }
-function queueSave(){ saveState("Saving …"); clearTimeout(saveTimer); saveTimer = setTimeout(doSave, 600); }
+function queueSave(){ if(!S.token) return; saveState("Saving …"); clearTimeout(saveTimer); saveTimer = setTimeout(doSave, 600); }
 async function doSave(){
   if(saving){ again = true; return; }
   saving = true; again = false;
   try{
     const r = await fetch("/plan", {method:"PUT", headers:{"Content-Type":"application/json","X-Admin-Token":S.token}, body:JSON.stringify(S.plan)});
-    if(r.status === 401 || r.status === 403){ const j = await r.json().catch(() => ({})); throw new Error(j.detail || "Not allowed"); }
+    if(r.status === 401 || r.status === 403){      // not allowed: lock the editor and throw the unsaved changes away
+      S.token = ""; try{ sessionStorage.removeItem("fa-token"); }catch(err){}
+      saving = false; await loadPlan();
+      saveState("The admin token was rejected, so your changes were discarded. Unlock again.", true); return;
+    }
     if(!r.ok){ const j = await r.json().catch(() => ({})); throw new Error(j.detail || ("HTTP " + r.status)); }
     saving = false;
     if(again) doSave(); else saveState("Saved");
@@ -786,8 +795,19 @@ $("login").addEventListener("submit", async e => {
     if(r.status === 403){ saveState("Plan editing is switched off on this server. Set ADMIN_TOKEN in .env and restart.", true); return; }
     if(!r.ok){ saveState("Wrong admin token.", true); return; }
     S.token = t; try{ sessionStorage.setItem("fa-token", t); }catch(err){}
-    $("token").value = ""; saveState(""); syncAdmin(); defaultInfo();
+    $("token").value = ""; saveState(""); renderAll(); defaultInfo();
   }catch(err){ saveState("The server is not reachable.", true); }
+});
+let wipeTimer = null;
+$("p-wipe").addEventListener("click", function(){   // two clicks: the first one only asks
+  if(this.dataset.armed !== "1"){
+    this.dataset.armed = "1"; this.textContent = "Click again to delete ALL floors, markers, walls and doors";
+    clearTimeout(wipeTimer); wipeTimer = setTimeout(() => { this.dataset.armed = ""; this.textContent = "Delete the whole building plan"; }, 6000);
+    return;
+  }
+  clearTimeout(wipeTimer); this.dataset.armed = ""; this.textContent = "Delete the whole building plan";
+  S.plan.floors = []; S.floorId = null; S.me = null; S.hl = []; S.route = []; S.sel = null; S.wsel = null; S.wallStart = null; S.delArmed = false;
+  queueSave(); renderAll(); defaultInfo();
 });
 $("a-create").addEventListener("click", createFloor);
 $("f-add").addEventListener("click", createFloor);
@@ -853,6 +873,11 @@ async function loadPlan(){
   renderAll(); if(!S.editing) defaultInfo();
 }
 buildAdmin();
+if(S.token){                                       // a token kept from earlier in this tab: check it before trusting it
+  fetch("/plan/admin-check", {headers:{"X-Admin-Token":S.token}}).then(r => {
+    if(!r.ok){ S.token = ""; try{ sessionStorage.removeItem("fa-token"); }catch(e){} renderAll(); }
+  }).catch(() => {});
+}
 addMsg("bot", "I am your fire safety assistant. If anyone is in danger: leave the area and call 112. Tap the plan where you are and I will show you exits and extinguishers from your site's plan. You can also ask me how to help others.");
 loadPlan(); loadZones();
 })();
