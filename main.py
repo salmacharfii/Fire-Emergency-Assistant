@@ -145,6 +145,11 @@ def ask(req: AskRequest):
     return AskResponse(answer=answer, sources=sources, mode=mode, safety_steps=steps, highlights=highlights)
 
 
-PLAN_IMAGE_DIR.mkdir(parents=True, exist_ok=True)  # the folder must exist before it can be served
-app.mount("/plan-images", StaticFiles(directory=str(PLAN_IMAGE_DIR)), name="plan-images")   # uploaded plan images
-app.mount("/", StaticFiles(directory=str(STATIC_DIR), html=True), name="static")   # the web page; must be mounted last
+try:
+    PLAN_IMAGE_DIR.mkdir(parents=True, exist_ok=True)
+except OSError:
+    pass                                           # read-only disk on Vercel: the folder comes from git
+if PLAN_IMAGE_DIR.exists():
+    app.mount("/plan-images", StaticFiles(directory=str(PLAN_IMAGE_DIR)), name="plan-images")
+if STATIC_DIR.exists():                            # only when running locally with a static folder
+    app.mount("/", StaticFiles(directory=str(STATIC_DIR), html=True), name="static")   # must stay the LAST line
