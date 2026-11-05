@@ -144,6 +144,12 @@ def _grid(floor):                                  # turns the walls into a bloc
         for r in rr:
             for c in cc:
                 blocked[r * cols + c] = 0
+    for m in floor.get("markers") or []:           # an emergency exit is by definition an opening in the wall: open about 1.5 m there
+        if m.get("t") == "exit":
+            r0, c0 = _cell(cols, rows, m["x"], m["y"])
+            for r in range(max(0, r0 - 1), min(rows, r0 + 2)):
+                for c in range(max(0, c0 - 1), min(cols, c0 + 2)):
+                    blocked[r * cols + c] = 0
     return cols, rows, blocked, cw, ch   # last two: metres per cell, horizontal and vertical
 
 

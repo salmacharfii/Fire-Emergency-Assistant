@@ -11,7 +11,7 @@ from config import WHISPER_MODEL, ADMIN_TOKEN, PLAN_IMAGE_DIR, STATIC_DIR   # (t
 from safety import is_fire_emergency, FIXED_STEPS  # fixed steps
 from agent import run_agent                        # the LangChain agent
 from guard import check_answer, extract_sources    # citation check
-from tools import list_zones, _zone_key, POSITIONS, FOUND, ROUTES   # zone names for the UI, session state for the plan tool
+from tools import list_zones, _zone_key, POSITIONS, FOUND, ROUTES, find_nearest   # zone names for the UI, session state for the plan tool
 from plan import load_plan, save_plan, clean_plan, nearest_room   # the building plan
 
 app = FastAPI(title="Fire Emergency Assistant")    # the application object that uvicorn runs
@@ -19,6 +19,26 @@ openai_client = OpenAI()                           # reads OPENAI_API_KEY from t
 
 MAX_AUDIO_BYTES = 25 * 1024 * 1024                 # the Whisper API accepts files up to 25 MB
 MAX_IMAGE_BYTES = 10 * 1024 * 1024                 # plan images up to 10 MB
+
+
+WHERE_WORDS = re.compile(r"\b(where|nearest|closest|near|find|locate|how (do|can|should) i (get|leave|escape|exit|go))\b", re.IGNORECASE)   # the user asks for a place
+THING_WORDS = [                                    # what is asked for -> the thing name find_nearest understands; first match wins
+    ("extinguisher", re.compile(r"extinguish", re.IGNORECASE)),
+    ("alarm", re.compile(r"alarm|call point|fire button", re.IGNORECASE)),
+    ("assembly", re.compile(r"assembly|muster|meeting point", re.IGNORECASE)),
+    ("first_aid", re.compile(r"first.?aid|medical|defibrillator|\baed\b", re.IGNORECASE)),
+    ("exit", re.compile(r"\bexits?\b|escape|get out|way out|leave|evacuat|stairs|staircase", re.IGNORECASE)),
+]
+
+
+def wanted_thing(question, fire):                  # which plan lookup this question needs, or None; decided by code, not by the AI
+    if WHERE_WORDS.search(question):
+        for name, pattern in THING_WORDS:
+            if pattern.search(question):
+                return name
+    if fire:                                       # a fire report: always show the way out
+        return "exit"
+    return None
 
 
 class Position(BaseModel):                         # where the user tapped on the plan
@@ -140,7 +160,11 @@ def ask(req: AskRequest):
     FOUND.pop(req.session_id, None)                # clear highlights from the previous question
     ROUTES.pop(req.session_id, None)               # and the route
     steps = FIXED_STEPS if is_fire_emergency(req.question) else []   # decided before any AI call
-    raw = run_agent(req.question, req.session_id, zone, room, req.position is not None)   # the agent picks tools and answers
+    lookup = None
+    thing = wanted_thing(req.question, bool(steps)) if req.position is not None else None
+    if thing:                                      # run the plan lookup in code, so the route is always found and drawn
+        lookup = find_nearest.invoke({"thing": thing}, config={"configurable": {"thread_id": req.session_id}})
+    raw = run_agent(req.question, req.session_id, zone, room, req.position is not None, lookup)   # the agent picks tools and answers
     answer, mode = check_answer(raw)               # guard: citation present or refuse
     sources = [Source(**s) for s in extract_sources(answer)] if mode == "answer" else []   # sources only for real answers
     highlights = FOUND.pop(req.session_id, []) if mode == "answer" else []   # only for answers that passed the guard

@@ -13,6 +13,7 @@ SYSTEM_PROMPT = (                                  # the rules the agent follows
     "check_equipment for inspection dates. "
     "If the message contains a line [User is in zone: X], use that zone for questions about the user's surroundings. "
     "If the message contains a line [User position is marked on the plan ...], call find_nearest for questions about the nearest exit, extinguisher, alarm button, assembly point or first aid point. "
+    "A line [Plan lookup ...] in the message is the result of find_nearest: use it, do not call find_nearest again. "
     "find_nearest says whether a distance is a walking distance around the drawn walls or a straight line; repeat that. Fire, smoke and blocked doors are never known: never say that a route is free or safe, tell the user to follow corridors and escape-route signs. "
     "Answer ONLY from tool results, never from your own knowledge. "   # no outside knowledge
     "Cite only passages that contain the statement you make. "   # no decorative citations
@@ -37,13 +38,15 @@ agent = create_agent(                              # one agent object, created o
 )
 
 
-def run_agent(question, session_id, zone=None, room=None, has_position=False):    # one user turn in, answer text out
+def run_agent(question, session_id, zone=None, room=None, has_position=False, lookup=None):    # one user turn in, answer text out
     lines = []                                     # context lines in front of the question
     if has_position:                               # the user tapped the plan
         where = f", nearest room: {room}" if room else ""
         lines.append(f"[User position is marked on the plan{where}]")
     if zone:                                       # a zone is known (picked, or taken from the nearest room)
         lines.append(f"[User is in zone: {zone}]")
+    if lookup:                                     # the plan lookup the server already ran for this question
+        lines.append(f"[Plan lookup, already done for this question; treat it as a tool result and cite [plan.json]: {lookup}]")
     text = "\n".join(lines + [question])           # context first, then the question
     result = agent.invoke(                         # run the tool loop until the agent has an answer
         {"messages": [{"role": "user", "content": text}]},   # the new message
