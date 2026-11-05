@@ -3,20 +3,23 @@ from langchain_openai import ChatOpenAI            # the OpenAI chat model as a 
 from langgraph.checkpoint.memory import InMemorySaver   # keeps each conversation in the server's memory
 
 from config import LLM_MODEL                       # "gpt-4o-mini" (this import also loads .env, including the LangSmith keys)
-from tools import search_documents, get_zone_info, check_equipment   # Day 3 tools
+from tools import search_documents, get_zone_info, check_equipment, find_nearest   # the tools
 
 SYSTEM_PROMPT = (                                  # the rules the agent follows on every question
     "You are a fire safety assistant for employees of one company. "
     "Use the tools to find facts: search_documents for rules and procedures, "
     "get_zone_info for exits, extinguishers and assembly points of a zone, "
+    "find_nearest for the closest exits, extinguishers, alarm buttons, assembly points or first aid points on the building plan, "
     "check_equipment for inspection dates. "
-    "If the message starts with [User is in zone: X], use that zone for questions about the user's surroundings. "
+    "If the message contains a line [User is in zone: X], use that zone for questions about the user's surroundings. "
+    "If the message contains a line [User position is marked on the plan ...], call find_nearest for questions about the nearest exit, extinguisher, alarm button, assembly point or first aid point. "
+    "Distances from find_nearest are straight lines and walls are unknown: never say that a route is free or safe, tell the user to follow corridors and escape-route signs. "
     "Answer ONLY from tool results, never from your own knowledge. "   # no outside knowledge
     "Cite only passages that contain the statement you make. "   # no decorative citations
     "A citation must be the label of the passage the statement comes from; never put a statement under another passage's label. "   # stops mixed-up pages
     "Write citations in square brackets exactly as labelled, without the word 'source'. "   # the guard expects this exact shape
     "After each statement write its source exactly as it appears in the tool result, "
-    "Copy the label printed above the passage exactly, with its real file name and page number, or use [zones.json] or [equipment.json]. "   # no example text to copy                   # makes the guard check possible
+    "Copy the label printed above the passage exactly, with its real file name and page number, or use [zones.json], [equipment.json] or [plan.json]. "   # no example text to copy
     "A tool result that answers the question is a valid answer even if it says 'none' or 'ok'; cite it. "   # e.g. "Overdue items: none"
     "If search_documents returns NO_RESULTS, or the results do not answer the question "
     "(for example questions about laws, fines, prices or other places), reply with exactly: NO_ANSWER. "   # a fixed word the code can detect
@@ -28,14 +31,20 @@ model = ChatOpenAI(model=LLM_MODEL, temperature=0)  # temperature 0 = least rand
 
 agent = create_agent(                              # one agent object, created once when the server starts
     model=model,                                   # which model decides and answers
-    tools=[search_documents, get_zone_info, check_equipment],   # what it may call
+    tools=[search_documents, get_zone_info, check_equipment, find_nearest],   # what it may call
     system_prompt=SYSTEM_PROMPT,                   # the rules above
     checkpointer=InMemorySaver(),                  # memory: stores the messages of each thread_id
 )
 
 
-def run_agent(question, session_id, zone=None):    # one user turn in, answer text out
-    text = question if not zone else f"[User is in zone: {zone}]\n{question}"   # tell the agent where the user is
+def run_agent(question, session_id, zone=None, room=None, has_position=False):    # one user turn in, answer text out
+    lines = []                                     # context lines in front of the question
+    if has_position:                               # the user tapped the plan
+        where = f", nearest room: {room}" if room else ""
+        lines.append(f"[User position is marked on the plan{where}]")
+    if zone:                                       # a zone is known (picked, or taken from the nearest room)
+        lines.append(f"[User is in zone: {zone}]")
+    text = "\n".join(lines + [question])           # context first, then the question
     result = agent.invoke(                         # run the tool loop until the agent has an answer
         {"messages": [{"role": "user", "content": text}]},   # the new message
         config={"configurable": {"thread_id": session_id}},   # same thread_id = same conversation

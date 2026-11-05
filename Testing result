@@ -4,3 +4,16 @@ py retrieval.py "How do I bake a cake?"
 
 
 ==> The first two print chunks really answer the question. The cake question prints nothing. 
+
+
+Day 1: 
+
+.Wrote 30 test questions from our own PDFs: 16 document, 2 zone, 2 equipment, 10 that must be refused. Every expected page was checked against the PDF text.
+.Measured retrieval quality: it found the right document and page in 16 of 16 questions. Set the match cutoff (MAX_DISTANCE) to 0.60.
+.Translated the German ASR A2.2 standard into English, which fixed all six questions that depend on it.
+.Built the LangSmith evaluation with three scores: answer-or-refuse, correct source, and fire steps shown only when there is a fire.
+.Improved the assistant from the first run: mode 27 to 30, sources 22 to 28, fire steps 28 to 30, all out of 30. The fixes:
+.stricter fire-phrase detection
+.a relevance grader so only passages that answer the question are cited
+.citation format fixes
+.an explicit “overdue items” result

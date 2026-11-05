@@ -1,9 +1,22 @@
 import json                                        # reads the two data files
 from datetime import date                          # today's date, for the overdue check
 from langchain.tools import tool                   # decorator that turns a function into an agent tool
+from langchain_core.runnables import RunnableConfig    # gives a tool access to the session (thread_id)
 
 from config import ZONES_FILE, EQUIPMENT_FILE      # file paths from config.py
-from retrieval import retrieve, format_context, filter_relevant   # the search plus the relevance check     # the search from this day
+from retrieval import retrieve, format_context, filter_relevant   # the search plus the relevance check
+from plan import load_plan, nearest, describe      # the building plan the admin drew
+
+POSITIONS = {}                                     # session_id -> {"floor", "x", "y"}; set by the API before every question
+FOUND = {}                                         # session_id -> marker ids found by find_nearest; the API sends them to the UI
+
+THING_TYPES = {                                    # what the agent may ask for -> marker types on the plan
+    "exit": {"exit", "stairs"},
+    "extinguisher": {"ext"},
+    "alarm": {"alarm"},
+    "assembly": {"assembly"},
+    "first_aid": {"aid"},
+}
 
 
 def _load(path):                                   # reads one JSON file
@@ -15,7 +28,7 @@ def _zone_key(zone):                               # "Open Office" becomes "open
     return zone.strip().lower().replace(" ", "_")  # same spelling as the keys in the JSON files
 
 
-def list_zones():                                  # used by the API on Day 4 to fill the UI drop-down
+def list_zones():                                  # used by the API to fill the UI drop-down
     return sorted(_load(ZONES_FILE).keys())        # zone names in alphabetical order
 
 
@@ -26,7 +39,7 @@ def search_documents(query: str) -> str:
     Returns text chunks, each labelled [file, p.N]."""
     hits = retrieve(query, top_k=8)                # wider net: 8 candidates, already cut by MAX_DISTANCE
     hits = filter_relevant(query, hits)            # keep only chunks that directly answer; the agent can then cite nothing else
-    if not hits:                                   # nothing close enough, or nothing that really answers                         # nothing close enough
+    if not hits:                                   # nothing close enough, or nothing that really answers
         return "NO_RESULTS: nothing relevant found in the approved documents."   # the agent must then refuse
     return format_context(hits)                    # labelled chunks
 
@@ -60,6 +73,30 @@ def check_equipment(zone: str) -> str:
     overdue = [e["id"] for e in items if date.fromisoformat(e["next_check"]) < today]   # ids with a passed due date
     summary = f"Overdue items: {', '.join(overdue) if overdue else 'none'}."   # explicit answer, also when nothing is overdue
     return "; ".join(lines) + f". {summary} [equipment.json]"   # label for the guard
+
+
+@tool
+def find_nearest(thing: str, config: RunnableConfig) -> str:
+    """Find the nearest exits, extinguishers, alarm buttons, assembly points or first aid points
+    on the building plan, measured in a straight line from the position the user marked on the plan.
+    thing must be one of: exit, extinguisher, alarm, assembly, first_aid.
+    Use it when the user asks where the nearest one is, or how to get out."""
+    session_id = (config or {}).get("configurable", {}).get("thread_id")   # same id the API used for the memory
+    key = thing.strip().lower().replace(" ", "_").replace("-", "_")        # tolerate small spelling differences
+    key = {"extinguishers": "extinguisher", "exits": "exit", "alarm_button": "alarm", "assembly_point": "assembly",
+           "firstaid": "first_aid", "first_aid_kit": "first_aid"}.get(key, key)
+    if key not in THING_TYPES:
+        return f"NO_RESULTS: unknown thing '{thing}'. Use one of: {', '.join(THING_TYPES)}."
+    pos = POSITIONS.get(session_id)                # where the user stands, set by the API
+    if pos is None:
+        return "NO_RESULTS: the user has not marked a position on the plan."
+    found = nearest(load_plan(), pos["floor"], pos["x"], pos["y"], THING_TYPES[key], n=3)
+    if not found:
+        return f"NO_RESULTS: nothing of type '{key}' is marked on the user's floor."
+    FOUND[session_id] = [r["marker"]["id"] for r in found]    # the UI highlights these on the plan
+    lines = "; ".join(describe(r) for r in found)
+    return (f"Nearest {key} from the user's position (straight line, walls are not known): {lines}. "
+            f"Tell the user to follow corridors and escape-route signs. [plan.json]")   # label for the guard
 
 
 if __name__ == "__main__":                         # runs only with: py tools.py

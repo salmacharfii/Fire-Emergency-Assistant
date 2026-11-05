@@ -1,0 +1,162 @@
+{
+ "site": {
+  "name": "Sample office (replace with your site)",
+  "note": "Sample data. Delete or edit it in the plan editor."
+ },
+ "floors": [
+  {
+   "id": "eg",
+   "name": "Ground floor",
+   "image": "sample_plan.svg",
+   "aspect": 1.5385,
+   "widthM": 40,
+   "markers": [
+    {
+     "id": "r0",
+     "t": "room",
+     "x": 0.1375,
+     "y": 0.192,
+     "l": "Office A"
+    },
+    {
+     "id": "r1",
+     "t": "room",
+     "x": 0.3875,
+     "y": 0.192,
+     "l": "Office B"
+    },
+    {
+     "id": "r2",
+     "t": "room",
+     "x": 0.6375,
+     "y": 0.192,
+     "l": "Meeting 1"
+    },
+    {
+     "id": "r3",
+     "t": "room",
+     "x": 0.875,
+     "y": 0.192,
+     "l": "Kitchen"
+    },
+    {
+     "id": "r4",
+     "t": "room",
+     "x": 0.1625,
+     "y": 0.692,
+     "l": "Reception"
+    },
+    {
+     "id": "r5",
+     "t": "room",
+     "x": 0.4125,
+     "y": 0.692,
+     "l": "Server room"
+    },
+    {
+     "id": "r6",
+     "t": "room",
+     "x": 0.7438,
+     "y": 0.692,
+     "l": "Open office"
+    },
+    {
+     "id": "r7",
+     "t": "room",
+     "x": 0.5,
+     "y": 0.442,
+     "l": "Corridor"
+    },
+    {
+     "id": "e0",
+     "t": "exit",
+     "x": 0.0125,
+     "y": 0.442,
+     "l": "West emergency exit"
+    },
+    {
+     "id": "e1",
+     "t": "exit",
+     "x": 0.169,
+     "y": 0.865,
+     "l": "Main entrance"
+    },
+    {
+     "id": "e2",
+     "t": "stairs",
+     "x": 0.931,
+     "y": 0.442,
+     "l": "East stairwell"
+    },
+    {
+     "id": "x0",
+     "t": "ext",
+     "k": "abc",
+     "x": 0.5,
+     "y": 0.4,
+     "l": "Corridor centre"
+    },
+    {
+     "id": "x1",
+     "t": "ext",
+     "k": "abc",
+     "x": 0.8,
+     "y": 0.4,
+     "l": "Corridor east"
+    },
+    {
+     "id": "x2",
+     "t": "ext",
+     "k": "abc",
+     "x": 0.22,
+     "y": 0.6,
+     "l": "Reception"
+    },
+    {
+     "id": "x3",
+     "t": "ext",
+     "k": "co2",
+     "x": 0.62,
+     "y": 0.78,
+     "l": "Open office"
+    },
+    {
+     "id": "x4",
+     "t": "ext",
+     "k": "f",
+     "x": 0.9,
+     "y": 0.27,
+     "l": "Kitchen"
+    },
+    {
+     "id": "a0",
+     "t": "alarm",
+     "x": 0.18,
+     "y": 0.8,
+     "l": "Reception"
+    },
+    {
+     "id": "a1",
+     "t": "alarm",
+     "x": 0.08,
+     "y": 0.4,
+     "l": "West end of corridor"
+    },
+    {
+     "id": "h0",
+     "t": "aid",
+     "x": 0.07,
+     "y": 0.78,
+     "l": "Reception"
+    },
+    {
+     "id": "s0",
+     "t": "assembly",
+     "x": 0.17,
+     "y": 0.95,
+     "l": "Car park in front of the main entrance"
+    }
+   ]
+  }
+ ]
+}
