@@ -237,7 +237,7 @@ button{cursor:pointer}
         <div class="chips" id="chips-loc"></div>
         <h3>What is happening?</h3>
         <div class="chips" id="chips"></div>
-        <div class="zonebox" id="zonebox" hidden><label for="zone">No plan position? Pick a zone:</label><select id="zone"></select></div>
+        <div class="zonebox" id="zonebox" hidden><label for="zone">Or pick your room:</label><select id="zone"></select></div>
       </div>
       <div class="log" id="log" role="log" aria-live="polite"></div>
       <div class="status" id="status" aria-live="polite"></div>
@@ -450,7 +450,7 @@ function defaultInfo(){
   if(!cur()){ setInfo(""); return; }
   setInfo(S.me ? "Position set. Ask me about exits, extinguishers or the assembly point." : "Tap the plan where you are now, or tap a room name.");
 }
-function renderAll(){ renderFloors(); renderStage(); renderLegend(); renderSite(); syncAdmin(); }
+function renderAll(){ renderFloors(); renderStage(); renderLegend(); renderSite(); renderRooms(); syncAdmin(); }
 
 /* ---------- map interaction ---------- */
 function setMe(x,y){
@@ -459,7 +459,8 @@ function setMe(x,y){
   S.hl = []; renderStage();
   const room = nearestRoom();
   setInfo("Position set." + (room ? "\n(" + room + ")" : "") + " Ask me about exits, extinguishers or the assembly point.");
-  $("zonebox").hidden = true;
+  const zsel = $("zone"), hit = roomList().find(r => r.floorId === S.me.floorId && Math.abs(r.x - S.me.x) < 1e-6 && Math.abs(r.y - S.me.y) < 1e-6);
+  zsel.value = hit ? "r|" + hit.floorId + "|" + hit.id : "";    // the drop-down shows the room only when you picked exactly that room
 }
 function markerTap(id){
   const f = cur(), m = f && f.markers.find(x => x.id === id); if(!m) return;
@@ -512,7 +513,7 @@ window.addEventListener("pointerup", () => {
   const moved = S.drag.moved; S.drag = null;
   if(moved){ S.dragMoved = true; queueSave(); setTimeout(() => { S.dragMoved = false; }, 0); }
 });
-$("clearme").addEventListener("click", () => { S.me = null; S.hl = []; renderStage(); defaultInfo(); if($("zone").options.length > 1) $("zonebox").hidden = false; });
+$("clearme").addEventListener("click", () => { S.me = null; S.hl = []; renderStage(); defaultInfo(); renderRooms(); });
 
 /* ---------- chat ---------- */
 let speakOn = false;
@@ -849,16 +850,39 @@ $("f-file").addEventListener("change", async function(){
   }catch(e){ saveState("Upload failed: " + e.message, true); }
 });
 
-/* ---------- zones (for sites without a plan) ---------- */
-$("zone").addEventListener("change", function(){ S.zone = this.value || null; });
+/* ---------- room drop-down: the rooms the admin added; zones from zones.json only when the plan has no rooms ---------- */
+S.zones = [];
+function roomList(){                               // every room marker with a name, on every floor
+  const list = [];
+  S.plan.floors.forEach(f => f.markers.forEach(m => { if(m.t === "room" && (m.l||"").trim()) list.push({floorId:f.id, floorName:f.name, id:m.id, label:m.l.trim(), x:m.x, y:m.y}); }));
+  return list;
+}
+function renderRooms(){
+  const sel = $("zone"), rooms = roomList(), keep = sel.value;
+  sel.textContent = "";
+  const o0 = document.createElement("option"); o0.value = ""; o0.textContent = rooms.length ? "(choose your room)" : "(not set)"; sel.appendChild(o0);
+  const many = S.plan.floors.length > 1;
+  if(rooms.length){
+    rooms.forEach(r => { const o = document.createElement("option"); o.value = "r|" + r.floorId + "|" + r.id; o.textContent = r.label + (many && r.floorName ? " (" + r.floorName + ")" : ""); sel.appendChild(o); });
+  }else{
+    S.zones.forEach(k => { const o = document.createElement("option"); o.value = k; o.textContent = k.replace(/_/g," "); sel.appendChild(o); });
+  }
+  if([...sel.options].some(o => o.value === keep)) sel.value = keep;
+  $("zonebox").hidden = sel.options.length < 2;
+}
+$("zone").addEventListener("change", function(){
+  const v = this.value;
+  if(v.indexOf("r|") === 0){                        // a room of the plan: put "You" in the middle of that room
+    const p = v.split("|"), room = roomList().find(r => r.floorId === p[1] && r.id === p[2]);
+    if(room){ S.zone = null; S.floorId = room.floorId; S.sel = null; renderFloors(); setMe(room.x, room.y); }
+  }else{
+    S.zone = v || null;                             // a zone name from zones.json (no rooms on the plan)
+  }
+});
 async function loadZones(){
   try{
     const r = await fetch("/zones"); if(!r.ok) return;
-    const z = await r.json();
-    const sel = $("zone"); sel.textContent = "";
-    const o0 = document.createElement("option"); o0.value = ""; o0.textContent = "(not set)"; sel.appendChild(o0);
-    z.forEach(k => { const o = document.createElement("option"); o.value = k; o.textContent = k.replace(/_/g," "); sel.appendChild(o); });
-    $("zonebox").hidden = !(z.length && !S.me);
+    S.zones = await r.json(); renderRooms();
   }catch(e){}
 }
 
