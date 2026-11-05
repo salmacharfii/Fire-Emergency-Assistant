@@ -165,61 +165,77 @@ def _free_cell(cols, rows, blocked, r, c, radius=6):   # the nearest walkable ce
     return None
 
 
-def _clear(cols, rows, blocked, a, b):             # True when the straight line between two cells crosses no wall
-    (r1, c1), (r2, c2) = a, b
-    steps = max(1, int(max(abs(r2 - r1), abs(c2 - c1)) * 4))
-    for i in range(steps + 1):
-        t = i / steps
-        r, c = int(round(r1 + (r2 - r1) * t)), int(round(c1 + (c2 - c1) * t))
-        if blocked[r * cols + c]:
-            return False
-    return True
+TURN_COST = 1.0                                    # metres added for every turn: routes keep straight, with few corners
 
 
-def _walk_all(cols, rows, blocked, dx, dy, start):    # shortest walking distance (metres) from start to every cell
+def _walk_all(cols, rows, blocked, dx, dy, start):    # shortest walking route (up, down, left, right only) from start to every cell
     inf = float("inf")
-    dist = [inf] * (cols * rows)
-    parent = [-1] * (cols * rows)
-    dist[start[0] * cols + start[1]] = 0.0
-    queue = [(0.0, start[0], start[1])]
-    diag = math.hypot(dx, dy)
-    moves = [(-1, 0, dy), (1, 0, dy), (0, -1, dx), (0, 1, dx), (-1, -1, diag), (-1, 1, diag), (1, -1, diag), (1, 1, diag)]
+    n = cols * rows
+    dist = [inf] * (n * 4)                         # state = cell * 4 + direction we are walking in
+    parent = [-1] * (n * 4)
+    moves = [(-1, 0, dy), (1, 0, dy), (0, -1, dx), (0, 1, dx)]   # up, down, left, right
+    queue = []
+    for d in range(4):
+        dist[(start[0] * cols + start[1]) * 4 + d] = 0.0
+        queue.append((0.0, start[0], start[1], d))
+    heapq.heapify(queue)
     while queue:
-        d, r, c = heapq.heappop(queue)
-        if d > dist[r * cols + c]:
+        cost, r, c, d = heapq.heappop(queue)
+        if cost > dist[(r * cols + c) * 4 + d]:
             continue
-        for mr, mc, cost in moves:
+        for nd, (mr, mc, step) in enumerate(moves):
             rr, cc = r + mr, c + mc
             if not (0 <= rr < rows and 0 <= cc < cols) or blocked[rr * cols + cc]:
                 continue
-            if mr and mc and (blocked[r * cols + cc] or blocked[rr * cols + c]):
-                continue                           # no cutting a wall corner diagonally
-            nd = d + cost
-            if nd < dist[rr * cols + cc]:
-                dist[rr * cols + cc] = nd
-                parent[rr * cols + cc] = r * cols + c
-                heapq.heappush(queue, (nd, rr, cc))
+            ncost = cost + step + (TURN_COST if nd != d else 0.0)
+            ns = (rr * cols + cc) * 4 + nd
+            if ncost < dist[ns]:
+                dist[ns] = ncost
+                parent[ns] = (r * cols + c) * 4 + d
+                heapq.heappush(queue, (ncost, rr, cc, nd))
     return dist, parent
 
 
-def _route(cols, rows, blocked, parent, goal, x, y, gx, gy):   # corner points of the walking route, as plan fractions
-    cells, i = [], goal[0] * cols + goal[1]
-    while i != -1:
-        cells.append((i // cols, i % cols))
-        i = parent[i]
+def _route(cols, rows, parent, dist, goal, dx, dy, x, y, gx, gy):   # corner points of the route (all 90 degrees) and its length in metres
+    base = (goal[0] * cols + goal[1]) * 4
+    state = min(range(base, base + 4), key=lambda i: dist[i])
+    if dist[state] == float("inf"):
+        return None, None
+    cells = []
+    while state != -1:
+        cells.append(((state // 4) // cols, (state // 4) % cols))
+        state = parent[state]
     cells.reverse()                                # start ... goal
-    keep, i = [cells[0]], 0
-    while i < len(cells) - 1:                      # pull the string tight: jump to the farthest cell that is in sight
-        j = len(cells) - 1
-        while j > i + 1 and not _clear(cols, rows, blocked, cells[i], cells[j]):
-            j -= 1
-        keep.append(cells[j])
+    length = sum(dy if cells[i][1] == cells[i + 1][1] else dx for i in range(len(cells) - 1))
+    runs, i = [], 0                                # straight runs: (vertical?, end cell)
+    while i < len(cells) - 1:
+        vertical = cells[i][1] == cells[i + 1][1]
+        j = i + 1
+        while j < len(cells) - 1 and (cells[j][1] == cells[j + 1][1]) == vertical:
+            j += 1
+        runs.append((vertical, cells[j]))
         i = j
-    pts = [[round(x, 4), round(y, 4)]]
-    for r, c in keep[1:-1]:
-        pts.append([round((c + 0.5) / cols, 4), round((r + 0.5) / rows, 4)])
-    pts.append([round(gx, 4), round(gy, 4)])
-    return pts
+    pts = [(x, y)]
+    for vertical, (r, c) in runs:                  # every segment stays exactly horizontal or vertical
+        px, py = pts[-1]
+        pts.append((px, (r + 0.5) / rows) if vertical else ((c + 0.5) / cols, py))
+    px, py = pts[-1]
+    if runs and runs[-1][0]:                       # last run was vertical: finish with a short horizontal step to the marker
+        pts += [(gx, py), (gx, gy)]
+    else:
+        pts += [(px, gy), (gx, gy)]
+    clean = []
+    for p in pts:                                  # drop repeated points and points on a straight line
+        if clean and abs(p[0] - clean[-1][0]) < 1e-4 and abs(p[1] - clean[-1][1]) < 1e-4:
+            continue
+        if len(clean) >= 2 and ((abs(clean[-2][0] - clean[-1][0]) < 1e-4 and abs(clean[-1][0] - p[0]) < 1e-4) or
+                                (abs(clean[-2][1] - clean[-1][1]) < 1e-4 and abs(clean[-1][1] - p[1]) < 1e-4)):
+            clean[-1] = p
+            continue
+        clean.append(p)
+    if len(clean) < 2:
+        clean = [(x, y), (gx, gy)]
+    return [[round(px, 4), round(py, 4)] for px, py in clean], length
 
 
 def nearest(plan, floor_id, x, y, types, kind=None, n=3, walk=True):   # markers of the given types, closest first
@@ -245,11 +261,13 @@ def nearest(plan, floor_id, x, y, types, kind=None, n=3, walk=True):   # markers
             for r in found:
                 m = r["marker"]
                 goal = _free_cell(cols, rows, blocked, *_cell(cols, rows, m["x"], m["y"]))
-                if goal is None or dist[goal[0] * cols + goal[1]] == float("inf"):
+                if goal is None:
+                    continue
+                pts, length = _route(cols, rows, parent, dist, goal, cw, ch, x, y, m["x"], m["y"])
+                if pts is None:
                     continue                       # no way there through the drawn walls and doors
-                pts = _route(cols, rows, blocked, parent, goal, x, y, m["x"], m["y"])
                 first = ((pts[1][0] - pts[0][0]) * width, (pts[1][1] - pts[0][1]) * height)
-                walked.append({"marker": m, "distance": dist[goal[0] * cols + goal[1]], "direction": direction(*first),
+                walked.append({"marker": m, "distance": length, "direction": direction(*first),
                                "scaled": True, "walking": True, "route": pts})
             walked.sort(key=lambda r: r["distance"])
             if walked:
