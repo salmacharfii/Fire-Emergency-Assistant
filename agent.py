@@ -20,6 +20,7 @@ SYSTEM_PROMPT = (                                  # the rules the agent follows
     "A citation must be the label of the passage the statement comes from; never put a statement under another passage's label. "   # stops mixed-up pages
     "Write citations in square brackets exactly as labelled, without the word 'source'. "   # the guard expects this exact shape
     "EVERY numbered step and EVERY sentence must end with its own citation in square brackets: [<file name>, p.<page>] copied from the passage label, or [zones.json], [equipment.json], [plan.json]. An answer without a citation is rejected. "
+    "Use only sentences that answer the question asked; do not add related facts, and do not add closing advice. Each citation must be the passage that contains that exact sentence. "    
     "Copy the label printed above the passage exactly, with its real file name and page number, or use [zones.json], [equipment.json] or [plan.json]. "   # no example text to copy
     "A tool result that answers the question is a valid answer even if it says 'none' or 'ok'; cite it. "   # e.g. "Overdue items: none"
     "If a passage contains the number, distance or rule that answers the question, answer with it and cite it. "

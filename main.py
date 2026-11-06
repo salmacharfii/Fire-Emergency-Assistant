@@ -178,6 +178,8 @@ def ask(req: AskRequest):
         retry = req.question + "\n\n(Answer again. End every sentence or step with its citation in square brackets, copied from the passage label.)"
         raw = run_agent(retry, req.session_id, zone, room, req.position is not None, lookup)
         answer, mode = check_answer(raw)
+    if steps and mode == "refused":                # a fire emergency: the fixed steps are the answer, not the refusal text
+        answer = "Follow the steps above. In an emergency call 112."
     sources = [Source(**s) for s in extract_sources(answer)] if mode == "answer" else []   # sources only for real answers
     highlights = FOUND.pop(req.session_id, []) if mode == "answer" else []   # only for answers that passed the guard
     route = ROUTES.pop(req.session_id, []) if mode == "answer" else []
