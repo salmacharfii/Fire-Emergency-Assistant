@@ -174,6 +174,10 @@ def ask(req: AskRequest):
         lookup = find_nearest.invoke({"thing": thing}, config={"configurable": {"thread_id": req.session_id}})
     raw = run_agent(req.question, req.session_id, zone, room, req.position is not None, lookup)   # the agent picks tools and answers
     answer, mode = check_answer(raw)               # guard: citation present or refuse
+    if mode == "refused" and raw.strip() != "NO_ANSWER":   # the model answered but forgot the citations: ask once more
+        retry = req.question + "\n\n(Answer again. End every sentence or step with its citation in square brackets, copied from the passage label.)"
+        raw = run_agent(retry, req.session_id, zone, room, req.position is not None, lookup)
+        answer, mode = check_answer(raw)
     sources = [Source(**s) for s in extract_sources(answer)] if mode == "answer" else []   # sources only for real answers
     highlights = FOUND.pop(req.session_id, []) if mode == "answer" else []   # only for answers that passed the guard
     route = ROUTES.pop(req.session_id, []) if mode == "answer" else []
