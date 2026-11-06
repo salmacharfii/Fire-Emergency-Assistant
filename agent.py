@@ -22,6 +22,7 @@ SYSTEM_PROMPT = (                                  # the rules the agent follows
     "After each statement write its source exactly as it appears in the tool result, "
     "Copy the label printed above the passage exactly, with its real file name and page number, or use [zones.json], [equipment.json] or [plan.json]. "   # no example text to copy
     "A tool result that answers the question is a valid answer even if it says 'none' or 'ok'; cite it. "   # e.g. "Overdue items: none"
+    "A laptop, computer, phone, charger or appliance is electrical equipment: answer questions about them from passages on electrical equipment or electrical fires, and cite the passage. "    
     "If search_documents returns NO_RESULTS, or the results do not answer the question "
     "(for example questions about laws, fines, prices or other places), reply with exactly: NO_ANSWER. "   # a fixed word the code can detect
     "Always answer in English, even if a document is in German. "

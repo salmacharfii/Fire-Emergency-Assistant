@@ -22,5 +22,5 @@ WHISPER_MODEL = "whisper-1"             # OpenAI model that turns speech into te
 CHUNK_SIZE = 1200                        # maximum characters per chunk
 CHUNK_OVERLAP = 100                     # characters repeated between neighbouring chunks
 TOP_K = 5                               # chunks retrieved per search
-MAX_DISTANCE = 0.60                     # largest distance still accepted as a match
+MAX_DISTANCE = 0.70                     # largest distance still accepted as a match
 BATCH_SIZE = 100                        # chunks sent to the embedding API per request

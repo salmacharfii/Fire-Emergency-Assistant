@@ -50,6 +50,7 @@ GRADER_PROMPT = (                                  # instructions for the releva
     "Return the numbers of the passages that DIRECTLY contain the answer to the question, separated by commas, for example: 1,3. "
     "A passage that only mentions related words (fire, extinguisher, exit) but does not answer the question does not count. "
     "If the question names a special condition (for example increased fire hazard), include the passage that covers that condition. "
+    "Treat a laptop, computer, phone, charger, battery or household appliance as electrical equipment: a passage about electrical equipment or electrical fires directly answers questions about them. "    
     "List the most direct passage first and return at most 3 numbers. "
     "If no passage directly answers the question, return exactly: NONE."
 )
