@@ -11,7 +11,7 @@ from config import WHISPER_MODEL, ADMIN_TOKEN, PLAN_IMAGE_DIR, STATIC_DIR   # (t
 from safety import is_fire_emergency, FIXED_STEPS  # fixed steps
 from agent import run_agent                        # the LangChain agent
 from guard import check_answer, extract_sources    # citation check
-from tools import list_zones, _zone_key, POSITIONS, FOUND, ROUTES, find_nearest   # zone names for the UI, session state for the plan tool
+from tools import equipment_alerts,list_zones, _zone_key, POSITIONS, FOUND, ROUTES, find_nearest   # zone names for the UI, session state for the plan tool
 from plan import load_plan, save_plan, clean_plan, nearest_room   # the building plan
 
 app = FastAPI(title="Fire Emergency Assistant")    # the application object that uvicorn runs
@@ -74,6 +74,12 @@ def require_admin(token):                          # stops everybody without the
     if not hmac.compare_digest(token or "", ADMIN_TOKEN):   # constant-time compare
         raise HTTPException(status_code=401, detail="Wrong admin token.")
 
+@app.get("/equipment/alerts")                      # GET /equipment/alerts: overdue and soon-due inspections for the banner
+def get_equipment_alerts():
+    try:
+        return equipment_alerts(30)
+    except (OSError, ValueError):                  # no equipment file: no alerts
+        return []
 
 @app.get("/zones")                                 # GET /zones for the UI drop-down
 def zones():

@@ -57,6 +57,19 @@ def get_zone_info(zone: str) -> str:
     return (f"Zone {zone}: nearest exit: {info['nearest_exit']}; extinguisher: {info['extinguisher']}; "
             f"alarm button: {info['alarm_button']}; assembly point: {info['assembly_point']}. [zones.json]")   # label for the guard
 
+def equipment_alerts(days=30):                     # items overdue or due within `days` days, for the warning banner
+    today, out = date.today(), []
+    for e in _load(EQUIPMENT_FILE):
+        try:
+            due = date.fromisoformat(e["next_check"])
+        except (KeyError, ValueError):             # a record without a valid date is skipped
+            continue
+        left = (due - today).days
+        if left <= days:
+            out.append({"id": e.get("id", "?"), "type": e.get("type", "equipment"), "zone": e.get("zone", ""),
+                        "next_check": e["next_check"], "days_left": left, "status": "overdue" if left < 0 else "soon"})
+    return sorted(out, key=lambda a: a["days_left"])   # most urgent first
+
 
 @tool
 def check_equipment(zone: str) -> str:
