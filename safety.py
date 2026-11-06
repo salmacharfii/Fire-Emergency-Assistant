@@ -11,6 +11,9 @@ FIRE_PATTERN = re.compile(                         # matches phrases that descri
     r"|burning\s+smell|smell\s+(?:of\s+)?(?:smoke|burning)"   # "I smell smoke"
     r"|(?:full\s+of|filled\s+with|see|seeing)\s+smoke|smoke\s+(?:is\s+)?(?:coming|filling|blocks?|everywhere)"
     r"|fire\s+alarm\s+(?:is\s+)?(?:sounding|going\s+off|ringing)"   # an alarm is ringing now
+    r"|fire\s+(?:is\s+)?(?:blocks?|blocking|blocked|trapp(?:ing|ed)|spreading|near|behind|in\s+front)"   # "the fire is blocking me"
+    r"|(?:trapped|stuck|cut\s+off)\s+(?:by|from|in)\s+(?:the\s+)?(?:fire|smoke|flames)"   # "I am trapped by the fire"
+    r"|(?:fire|flames?)\s+(?:blocks?|blocking|blocked)\s+(?:the\s+|my\s+)?(?:exit|door|way|route|corridor|stairs?)"   # "fire blocks the exit"
     r"|es\s+brennt|feuer(?:\s+im|\s+in)?(?=\W|$)|brennt|rauch\s+(?:im|in|überall)|flammen"   # German
     r")\b|\bfire!|\bfeuer!",                       # a shouted "Fire!"
     re.IGNORECASE,
