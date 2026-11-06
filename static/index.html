@@ -216,6 +216,7 @@ button{cursor:pointer}
             <div class="field"><label for="s-label">Label</label><input id="s-label" type="text" maxlength="60"></div>
             <div class="field"><label for="s-type">Type</label><select id="s-type"></select></div>
             <div class="field" id="s-kindbox"><label for="s-kind">Extinguisher type</label><select id="s-kind"></select></div>
+            <div class="field" id="s-datebox"><label for="s-date">Next inspection due</label><input id="s-date" type="date"></div>
             <button class="btn danger" id="s-del" type="button">Delete marker</button>
           </div>
           <div class="row">
@@ -660,7 +661,7 @@ async function doSave(){
     }
     if(!r.ok){ const j = await r.json().catch(() => ({})); throw new Error(j.detail || ("HTTP " + r.status)); }
     saving = false;
-    if(again) doSave(); else saveState("Saved");
+    if(again) doSave(); else { saveState("Saved"); loadAlerts(); }   // the banner follows the saved dates
   }catch(e){ saving = false; saveState("Saving failed: " + e.message, true); }
 }
 
@@ -751,6 +752,7 @@ function syncSel(){
   const m = selMarker(); $("a-sel").hidden = !(S.editing && m); if(!m) return;
   const lab = $("s-label"); if(document.activeElement !== lab) lab.value = m.l || "";
   $("s-type").value = m.t; $("s-kindbox").hidden = m.t !== "ext"; $("s-kind").value = m.k || "abc";
+  $("s-datebox").hidden = m.t !== "ext"; setField($("s-date"), m.d || "");
 }
 function setField(el,v){ if(document.activeElement !== el) el.value = v; }
 function syncAdmin(){
@@ -840,6 +842,7 @@ $("s-type").addEventListener("change", function(){
   queueSave(); renderStage(); renderLegend(); syncSel();
 });
 $("s-kind").addEventListener("change", function(){ const m = selMarker(); if(!m) return; m.k = this.value; queueSave(); });
+$("s-date").addEventListener("change", function(){ const m = selMarker(); if(!m) return; if(this.value) m.d = this.value; else delete m.d; queueSave(); });
 $("s-del").addEventListener("click", () => {
   const m = selMarker(), f = cur(); if(!m) return;
   f.markers = f.markers.filter(x => x.id !== m.id); S.sel = null; S.hl = S.hl.filter(i => i !== m.id);

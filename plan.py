@@ -4,6 +4,7 @@ import math                                        # distances and angles
 import os                                          # atomic file replace
 import re                                          # name checks
 import tempfile                                    # temp file for a safe save
+from datetime import date                          # checks inspection dates
 
 from config import PLAN_FILE                       # data/plan.json (this also loads .env)
 
@@ -79,6 +80,12 @@ def clean_plan(raw):                               # checks an uploaded plan and
                  "t": mr["t"], "x": round(x, 4), "y": round(y, 4), "l": str(mr.get("l", ""))[:60]}
             if m["t"] == "ext":
                 m["k"] = mr.get("k") if mr.get("k") in EXT_KINDS else "abc"
+                d = str(mr.get("d", ""))[:10]          # next inspection date, YYYY-MM-DD, set by the admin
+                if re.fullmatch(r"\d{4}-\d{2}-\d{2}", d):
+                    try:
+                        date.fromisoformat(d); m["d"] = d
+                    except ValueError:
+                        pass                           # an impossible date like 2026-02-31 is dropped
             markers.append(m)
         walls = []
         for wr in (fr.get("walls") or [])[:2000]:  # wall lines drawn by the admin, as fractions of the plan

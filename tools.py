@@ -59,15 +59,23 @@ def get_zone_info(zone: str) -> str:
 
 def equipment_alerts(days=30):                     # items overdue or due within `days` days, for the warning banner
     today, out = date.today(), []
-    for e in _load(EQUIPMENT_FILE):
+    def add(ident, kind, where, due_text):         # one record, from equipment.json or from a plan marker
         try:
-            due = date.fromisoformat(e["next_check"])
-        except (KeyError, ValueError):             # a record without a valid date is skipped
-            continue
-        left = (due - today).days
+            left = (date.fromisoformat(due_text) - today).days
+        except (TypeError, ValueError):            # no valid date: skipped
+            return
         if left <= days:
-            out.append({"id": e.get("id", "?"), "type": e.get("type", "equipment"), "zone": e.get("zone", ""),
-                        "next_check": e["next_check"], "days_left": left, "status": "overdue" if left < 0 else "soon"})
+            out.append({"id": ident, "type": kind, "zone": where, "next_check": due_text,
+                        "days_left": left, "status": "overdue" if left < 0 else "soon"})
+    try:
+        for e in _load(EQUIPMENT_FILE):            # the older list in data/equipment.json
+            add(e.get("id", "?"), e.get("type", "equipment"), e.get("zone", ""), e.get("next_check"))
+    except (OSError, ValueError, AttributeError):
+        pass
+    for fl in load_plan().get("floors", []):       # extinguishers placed on the plan, with the date the admin set
+        for m in fl.get("markers", []):
+            if m.get("t") == "ext" and m.get("d"):
+                add(m.get("l") or "Extinguisher", m.get("k", "abc"), fl.get("name", ""), m["d"])
     return sorted(out, key=lambda a: a["days_left"])   # most urgent first
 
 
