@@ -33,6 +33,10 @@ button,input,select,textarea{font:inherit;color:inherit}
 button{cursor:pointer}
 :focus-visible{outline:3px solid var(--fire);outline-offset:2px}
 [hidden]{display:none!important}
+.alerts{border:2px solid var(--fire);background:var(--warn-bg);border-radius:10px;padding:10px 14px}
+.alerts summary{cursor:pointer;font-weight:600}
+.alerts ul{margin:8px 0 0;padding-left:20px}
+.alerts .badge{background:var(--fire);color:var(--fire-ink);border-radius:999px;padding:0 8px;margin-right:6px;font-weight:700}
 
 .top{display:flex;flex-wrap:wrap;gap:12px 20px;align-items:center;justify-content:space-between}
 .brand h1{font-family:var(--display);font-weight:700;font-size:2rem;letter-spacing:.02em;text-transform:uppercase;margin:0;line-height:1}
@@ -161,6 +165,11 @@ button{cursor:pointer}
       <button class="btn" id="editbtn" type="button" aria-pressed="false">Edit plan</button>
     </div>
   </header>
+
+  <details class="alerts" id="alerts" hidden open>
+    <summary><span class="badge" id="alertcount">0</span><span id="alerttitle">Inspections due</span></summary>
+    <ul id="alertlist"></ul>
+  </details>
 
   <section class="call" aria-label="Emergency call">
     <span class="num">112</span>
@@ -910,7 +919,25 @@ if(S.token){                                       // a token kept from earlier 
   }).catch(() => {});
 }
 addMsg("bot", "I am your fire safety assistant. If anyone is in danger: leave the area and call 112. Tap the plan where you are and I will show you exits and extinguishers from your site's plan. You can also ask me how to help others.");
-loadPlan(); loadZones();
+async function loadAlerts(){                         // warns about extinguishers and kits that are overdue or due within 30 days
+  try{
+    const r = await fetch("/equipment/alerts"); if(!r.ok) return;
+    const list = await r.json(), box = $("alerts"), ul = $("alertlist");
+    ul.textContent = "";
+    box.hidden = list.length === 0;
+    if(!list.length) return;
+    const late = list.filter(a => a.status === "overdue").length;
+    $("alertcount").textContent = String(list.length);
+    $("alerttitle").textContent = late ? late + " overdue, " + (list.length - late) + " due soon: inspection needed" : list.length + " inspection(s) due within 30 days";
+    list.forEach(a => {
+      const li = document.createElement("li");
+      const when = a.days_left < 0 ? "overdue by " + (-a.days_left) + " day(s)" : a.days_left === 0 ? "due today" : "due in " + a.days_left + " day(s)";
+      li.textContent = a.id + " (" + a.type + (a.zone ? ", " + a.zone.replace(/_/g, " ") : "") + "): " + when + " (" + a.next_check + ")";
+      ul.appendChild(li);
+    });
+  }catch(e){}
+}
+loadPlan(); loadZones(); loadAlerts(); setInterval(loadAlerts, 6 * 60 * 60 * 1000);
 })();
 </script>
 </body>
