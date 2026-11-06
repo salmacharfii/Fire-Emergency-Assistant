@@ -156,7 +156,10 @@ button{cursor:pointer}
       <h1>Fire Emergency Assistant</h1>
       <p>Answers from your site's approved documents and building plan. Type or speak.</p>
     </div>
-    <button class="btn" id="editbtn" type="button" aria-pressed="false">Edit plan</button>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <a class="btn" href="/extinguisher.html" style="text-decoration:none;display:inline-flex;align-items:center">Extinguisher training</a>
+      <button class="btn" id="editbtn" type="button" aria-pressed="false">Edit plan</button>
+    </div>
   </header>
 
   <section class="call" aria-label="Emergency call">
@@ -176,7 +179,7 @@ button{cursor:pointer}
       <div class="stagewrap">
         <div class="stage" id="stage"></div>
         <div class="mapinfo" id="mapinfo" aria-live="polite"></div>
-        <div class="maprow"><button class="btn" id="clearme" type="button" hidden>Clear position</button></div>
+        <div class="maprow"><button class="btn" id="clearme" type="button" hidden>Clear position</button><a class="btn" id="trainlink" href="/extinguisher.html" hidden style="text-decoration:none;display:inline-flex;align-items:center">Practise with this extinguisher</a></div>
         <div class="legend" id="legend"></div>
         <div class="note">The dashed line is a straight line. Walls are not on the plan: follow corridors and escape-route signs.</div>
       </div>
@@ -455,6 +458,7 @@ function renderAll(){ renderFloors(); renderStage(); renderLegend(); renderSite(
 /* ---------- map interaction ---------- */
 function setMe(x,y){
   const f = cur(); if(!f) return;
+  $("trainlink").hidden = true;
   S.me = {x:Math.min(1,Math.max(0,x)), y:Math.min(1,Math.max(0,y)), floorId:f.id};
   S.hl = []; renderStage();
   const room = nearestRoom();
@@ -466,6 +470,9 @@ function markerTap(id){
   const f = cur(), m = f && f.markers.find(x => x.id === id); if(!m) return;
   if(m.t === "room"){ setMe(m.x,m.y); return; }
   S.hl = [m.id];
+  const tl = $("trainlink");                       // an extinguisher: offer the training game for its type
+  if(m.t === "ext"){ tl.href = "/extinguisher.html" + (m.k ? "?type=" + encodeURIComponent(m.k) : ""); tl.hidden = false; }
+  else tl.hidden = true;
   let txt = TYPE_NAMES[m.t] + (m.l ? ": " + m.l : "");
   if(m.t === "ext" && m.k && KINDS[m.k]) txt += " (" + KINDS[m.k] + ")";
   if(S.me && S.me.floorId === f.id){

@@ -1,0 +1,443 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Extinguisher Training</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Public+Sans:wght@400;500;600&display=swap">
+<style>
+:root{
+  --bg:#EEF0F3; --surface:#FFFFFF; --surface-2:#E3E7EC; --fg:#161B22; --muted:#56606C; --line:#CBD2DA;
+  --fire:#D63A14; --fire-ink:#FFFFFF; --ok:#1F7A4F; --ok-bg:#E3F3EA; --bad-bg:#FBE9E3; --warn:#B35A00;
+  --display:"Barlow Condensed","Arial Narrow",Arial,sans-serif;
+  --body:"Public Sans",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root{ --bg:#12161C; --surface:#1B212A; --surface-2:#252D38; --fg:#ECEFF3; --muted:#9AA5B2; --line:#2F3946;
+    --fire:#F05A33; --fire-ink:#14100E; --ok:#4CC38A; --ok-bg:#16301F; --bad-bg:#2E1B15; --warn:#E39A3A; color-scheme:dark; }
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:16px;line-height:1.5;padding:16px max(16px,env(safe-area-inset-right,0px)) 40px max(16px,env(safe-area-inset-left,0px))}
+.wrap{max-width:760px;margin:0 auto;display:flex;flex-direction:column;gap:16px}
+button,input,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:3px solid var(--fire);outline-offset:2px}
+[hidden]{display:none!important}
+h1{font-family:var(--display);font-weight:700;font-size:2rem;letter-spacing:.02em;text-transform:uppercase;margin:0;line-height:1}
+h2{font-family:var(--display);font-weight:700;font-size:1.4rem;letter-spacing:.03em;text-transform:uppercase;margin:0;line-height:1.1}
+.top{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;justify-content:space-between}
+.back{color:var(--fg);font-weight:600;font-size:.9rem}
+.sub{margin:4px 0 0;color:var(--muted);font-size:.9rem}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px;min-width:0}
+.bar{display:flex;flex-wrap:wrap;gap:8px 20px;align-items:center;justify-content:space-between;font-weight:600}
+.bar .hearts{letter-spacing:.2em;color:var(--fire);font-size:1.2rem}
+.bar .muted{color:var(--muted);font-weight:500}
+.disc{font-size:.85rem;color:var(--muted)}
+.scene{display:flex;flex-wrap:wrap;gap:16px;align-items:center}
+.pic{flex:0 0 190px;max-width:100%;background:var(--surface-2);border-radius:8px;padding:8px;display:grid;place-items:center}
+.pic svg{width:100%;height:auto;max-height:150px}
+.story{flex:1 1 240px;min-width:0}
+.story p{margin:6px 0 0}
+.tag{display:inline-block;font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;font-weight:600;color:var(--muted)}
+.flame{transform-origin:50% 100%;transform-box:fill-box;transition:transform .7s ease,opacity .7s ease;transform:scale(var(--f,1))}
+.flame path{animation:flick 1s ease-in-out infinite alternate;transform-origin:50% 100%;transform-box:fill-box}
+.flame path:nth-child(2){animation-duration:.7s}
+@keyframes flick{from{transform:scale(1,1)}to{transform:scale(.94,1.07)}}
+.out .flame{opacity:0;transform:scale(0)}
+.grow .flame{transform:scale(1.5)}
+.smoke{opacity:0;transition:opacity .7s}
+.out .smoke{opacity:.55}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-top:12px}
+.opt{background:var(--surface-2);border:2px solid var(--line);border-radius:10px;padding:10px 8px;min-height:52px;font-weight:600;text-align:center;display:flex;flex-direction:column;gap:6px;align-items:center}
+.opt:hover{border-color:var(--fire)}
+.opt svg{width:34px;height:50px}
+.opt small{font-weight:400;color:var(--muted);font-size:.74rem;line-height:1.25}
+.opt.leave{grid-column:1/-1;flex-direction:row;justify-content:center;min-height:48px;border-style:dashed}
+.opt.right{border-color:var(--ok);background:var(--ok-bg)}
+.opt.wrong{border-color:var(--fire);background:var(--bad-bg)}
+.opt:disabled{cursor:default}
+.shake{animation:shake .35s}
+@keyframes shake{25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
+.steps{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-top:12px}
+.slot{border:2px dashed var(--line);border-radius:10px;padding:10px;min-height:64px;display:flex;flex-direction:column;gap:2px}
+.slot b{font-family:var(--display);font-size:1.3rem;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);line-height:1}
+.slot span{font-size:.82rem;color:var(--muted)}
+.slot.done{border-style:solid;border-color:var(--ok);background:var(--ok-bg)}
+.slot.done b{color:var(--ok)}
+.slot.done span{color:var(--fg)}
+.msg{margin-top:12px;padding:10px 14px;border-radius:8px;border:1px solid var(--line);background:var(--surface-2);white-space:pre-wrap;overflow-wrap:anywhere}
+.msg.good{border-color:var(--ok);background:var(--ok-bg)}
+.msg.bad{border-color:var(--fire);background:var(--bad-bg)}
+.msg b{display:block}
+.btn{background:var(--fg);color:var(--bg);border:0;border-radius:8px;padding:10px 18px;min-height:44px;font-weight:600}
+.btn.alt{background:var(--surface-2);color:var(--fg);border:1px solid var(--line)}
+.row{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.stars{font-size:2rem;color:var(--warn);letter-spacing:.15em}
+table{border-collapse:collapse;width:100%;font-size:.9rem}
+th,td{border-bottom:1px solid var(--line);padding:6px 8px;text-align:left;vertical-align:top}
+th{font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.yes{color:var(--ok);font-weight:600}.no{color:var(--fire);font-weight:600}
+.results{list-style:none;margin:8px 0 0;padding:0;display:flex;flex-direction:column;gap:6px}
+.results li{display:flex;gap:10px;justify-content:space-between;flex-wrap:wrap;border-bottom:1px solid var(--line);padding-bottom:6px}
+.ask textarea{width:100%;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:10px 12px;min-height:48px;resize:vertical}
+.ask .ans{margin-top:10px;white-space:pre-wrap;overflow-wrap:anywhere}
+.ask .src{display:block;margin-top:6px;font-size:.78rem;color:var(--muted)}
+@media (prefers-reduced-motion:reduce){.flame,.flame path,.shake{animation:none;transition:none}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1>Extinguisher training</h1>
+      <p class="sub">Choose the right extinguisher, then use it with the PASS steps in the right order.</p>
+    </div>
+    <a class="back" href="/">&larr; Back to the assistant</a>
+  </header>
+
+  <div class="card bar" id="bar" aria-live="polite"></div>
+  <main id="stage" class="card"></main>
+
+  <section class="card ask">
+    <h2>Ask the assistant</h2>
+    <p class="disc">Questions like "Can I use water on a laptop fire?" are answered from your site's approved documents, with the source. If the documents say nothing, the assistant says so.</p>
+    <textarea id="q" rows="2" placeholder="Ask about extinguishers ..."></textarea>
+    <div class="row"><button class="btn" id="askbtn" type="button">Ask</button></div>
+    <div class="ans" id="ans" aria-live="polite"></div>
+  </section>
+
+  <p class="disc">Training only. In a real fire: raise the alarm first, fight only small fires with your exit behind you, never put yourself at risk and call 112. The label on the real extinguisher and your site's fire safety rules always come first.</p>
+</div>
+
+<script>
+(function(){
+"use strict";
+
+/* ---------- content (fixed text: nothing here is made up by the AI) ---------- */
+const EXT = {
+  water: {name:"Water", sub:"solids"},
+  foam:  {name:"Foam", sub:"solids and liquids"},
+  abc:   {name:"ABC powder", sub:"solids, liquids, gases"},
+  co2:   {name:"CO₂", sub:"electrical, small liquid fires"},
+  f:     {name:"Wet chemical (F)", sub:"cooking oil and fat"}
+};
+const ORDER = ["water","foam","abc","co2","f"];
+
+const STEPS = [
+  {k:"pull",    t:"Pull",    d:"Pull the safety pin and break the seal."},
+  {k:"aim",     t:"Aim",     d:"Aim the nozzle at the base of the flames, not the top."},
+  {k:"squeeze", t:"Squeeze", d:"Squeeze the handle to release the agent."},
+  {k:"sweep",   t:"Sweep",   d:"Sweep from side to side across the base until the fire is out."}
+];
+const TIPS = {
+  water:{aim:"Start at the near edge and work forward."},
+  foam: {aim:"Let the foam fall on the surface. Do not blast it straight into a burning liquid."},
+  abc:  {aim:"Powder makes a cloud: keep your back to the exit and hold your breath if you can."},
+  co2:  {aim:"Hold only the insulated handle. The horn becomes freezing cold.", squeeze:"CO₂ has a short range: stay close, about 1 m."},
+  f:    {aim:"Use a gentle, sweeping stream. Never splash the hot oil."}
+};
+
+const SCENARIOS = [
+  {id:"paper", type:"water", icon:"boxes", title:"Boxes in the storage room", place:"Storage room",
+   text:"A stack of cardboard boxes is burning, knee-high. The exit is behind you and there is little smoke.",
+   best:["water"], ok:["foam","abc"],
+   why:{
+     water:"Water cools burning paper and cardboard (a solid fire, class A).",
+     foam:"Foam also works on solids, but plain water is the simple choice here.",
+     abc:"Powder works on solids, but it makes a mess and does not cool. Acceptable, not the best.",
+     co2:"CO₂ only blows the flames away and does not cool. Cardboard glows on and reignites.",
+     f:"Wet chemical is made for cooking oil and fat. It is the wrong tool for cardboard."}},
+  {id:"electric", type:"co2", icon:"rack", title:"Server rack on fire", place:"Server room",
+   text:"A computer rack is burning. The equipment is still powered. The fire is small and the exit is behind you.",
+   best:["co2"], ok:["abc"], tip:"If you can do it safely, switch off the power.",
+   why:{
+     co2:"CO₂ leaves no residue and does not conduct electricity. The best choice for live electrical equipment.",
+     abc:"Powder can be used on electrical fires, but it ruins the electronics. Acceptable, not the best.",
+     water:"Water conducts electricity: you could get an electric shock. Never use it on live equipment.",
+     foam:"Foam contains water and can conduct electricity. Not for live equipment.",
+     f:"Wet chemical is for cooking oil and fat, and it is not safe on live equipment."}},
+  {id:"oil", type:"f", icon:"pan", title:"Pan of burning oil", place:"Kitchen",
+   text:"Oil in a frying pan has caught fire. Do not move the pan. The exit is behind you.",
+   best:["f"], ok:[], tip:"Never carry the pan and never use water.",
+   why:{
+     f:"Wet chemical forms a soapy layer on the hot oil that seals and cools it. Made for exactly this.",
+     water:"NEVER water on burning oil: it turns to steam and throws burning oil up as a fireball.",
+     foam:"Foam can splash the burning oil around. Use wet chemical (F).",
+     abc:"Powder may knock down the flames, but the oil stays hot and flares up again.",
+     co2:"CO₂ can blow burning oil out of the pan, and it does not cool the oil."}},
+  {id:"solvent", type:"foam", icon:"can", title:"Spilled solvent in the workshop", place:"Workshop",
+   text:"A puddle of solvent on the floor is burning. The fire is small and the exit is behind you.",
+   best:["foam"], ok:["abc","co2"],
+   why:{
+     foam:"Foam floats on the liquid and smothers it, so it cannot reignite (a liquid fire, class B).",
+     abc:"Powder works on liquid fires. Acceptable, but the fire can flare up again.",
+     co2:"CO₂ works on small liquid fires, but it has a short range and no lasting effect.",
+     water:"Water sinks under the solvent and spreads the burning liquid. Do not use it.",
+     f:"Wet chemical is for cooking oil and fat, not for solvents."}},
+  {id:"mixed", type:"abc", icon:"shelf", title:"Shelves with paint cans", place:"Garage store",
+   text:"Wooden shelves with paint cans are burning. Wood and liquids are both on fire. The exit is behind you.",
+   best:["abc"], ok:["foam"],
+   why:{
+     abc:"ABC powder covers solids, liquids and gases at once: the right choice when different materials burn.",
+     foam:"Foam works on both wood and liquids. Acceptable, though powder is more flexible.",
+     water:"Water helps with wood but spreads the burning paint. Not suitable.",
+     co2:"CO₂ does not cool the wood, so the shelves reignite. Not suitable.",
+     f:"Wet chemical is for cooking oil and fat only."}},
+  {id:"big", type:null, icon:"room", title:"The fire is too big", place:"Open office",
+   text:"The fire has reached the ceiling and thick black smoke is filling the room. You have one extinguisher in your hand.",
+   best:["leave"], ok:[], big:true,
+   why:{
+     leave:"Right. A fire this size cannot be fought with an extinguisher. Raise the alarm, close the door behind you, leave and call 112.",
+     water:"The fire is too big, and the smoke is already dangerous. Leave instead.",
+     foam:"The fire is too big, and the smoke is already dangerous. Leave instead.",
+     abc:"The fire is too big, and the smoke is already dangerous. Leave instead.",
+     co2:"The fire is too big, and the smoke is already dangerous. Leave instead.",
+     f:"The fire is too big, and the smoke is already dangerous. Leave instead."}}
+];
+
+/* ---------- small helpers ---------- */
+const $ = id => document.getElementById(id);
+const stage = $("stage"), bar = $("bar");
+const el = (tag, cls, text) => { const n = document.createElement(tag); if(cls) n.className = cls; if(text !== undefined) n.textContent = text; return n; };
+const shuffle = a => { const b = a.slice(); for(let i = b.length-1; i > 0; i--){ const j = Math.floor(Math.random()*(i+1)); [b[i],b[j]] = [b[j],b[i]]; } return b; };
+const NS = "http://www.w3.org/2000/svg";
+
+function extSvg(){                                   // one red extinguisher icon, used on every card
+  return '<svg viewBox="0 0 34 50" aria-hidden="true"><rect x="9" y="14" width="16" height="32" rx="5" fill="#D63A14"/><rect x="9" y="26" width="16" height="9" fill="#fff" opacity=".85"/><rect x="13" y="7" width="8" height="8" rx="2" fill="#56606C"/><path d="M21 9h7l3 5" stroke="#56606C" stroke-width="2.5" fill="none" stroke-linecap="round"/><rect x="11" y="4" width="10" height="3" rx="1.5" fill="#56606C"/></svg>';
+}
+const ICONS = {
+  boxes:'<rect x="14" y="62" width="50" height="38" fill="#B98B57" stroke="#6B4E2A" stroke-width="3"/><rect x="62" y="74" width="42" height="26" fill="#C99A63" stroke="#6B4E2A" stroke-width="3"/><rect x="30" y="38" width="40" height="26" fill="#C99A63" stroke="#6B4E2A" stroke-width="3"/>',
+  rack:'<rect x="30" y="20" width="70" height="80" rx="4" fill="#3A4452" stroke="#161B22" stroke-width="3"/><rect x="38" y="30" width="54" height="9" fill="#56606C"/><rect x="38" y="46" width="54" height="9" fill="#56606C"/><rect x="38" y="62" width="54" height="9" fill="#56606C"/><circle cx="84" cy="34" r="2.5" fill="#4CC38A"/><circle cx="84" cy="50" r="2.5" fill="#4CC38A"/>',
+  pan:'<ellipse cx="62" cy="84" rx="40" ry="12" fill="#3A4452" stroke="#161B22" stroke-width="3"/><rect x="98" y="80" width="24" height="7" rx="3" fill="#3A4452" stroke="#161B22" stroke-width="2"/><ellipse cx="62" cy="82" rx="32" ry="7" fill="#C98A1A"/>',
+  can:'<rect x="40" y="46" width="40" height="52" rx="5" fill="#2748A8" stroke="#161B22" stroke-width="3"/><rect x="48" y="38" width="24" height="9" rx="2" fill="#56606C"/><rect x="46" y="62" width="28" height="16" fill="#fff" opacity=".85"/><ellipse cx="62" cy="104" rx="46" ry="6" fill="#7FA3D9" opacity=".7"/>',
+  shelf:'<rect x="14" y="26" width="104" height="6" fill="#8A6A3F"/><rect x="14" y="62" width="104" height="6" fill="#8A6A3F"/><rect x="14" y="98" width="104" height="6" fill="#8A6A3F"/><rect x="26" y="40" width="18" height="22" rx="3" fill="#2748A8"/><rect x="52" y="44" width="18" height="18" rx="3" fill="#B35A00"/><rect x="82" y="40" width="18" height="22" rx="3" fill="#1F7A4F"/><rect x="30" y="76" width="22" height="22" rx="3" fill="#2748A8"/>',
+  room:'<rect x="12" y="24" width="106" height="78" fill="#4A5360" stroke="#161B22" stroke-width="3"/><rect x="24" y="64" width="34" height="38" fill="#6A7482"/><rect x="72" y="64" width="34" height="22" fill="#6A7482"/>'
+};
+function sceneSvg(icon, big){                        // a simple picture: object plus animated flame and smoke
+  const f = big ? 1.5 : 1;
+  return '<svg viewBox="0 0 130 120" role="img" aria-label="Scene"><rect width="130" height="120" fill="none"/>' + ICONS[icon] +
+    '<g class="smoke"><circle cx="40" cy="26" r="14" fill="#56606C"/><circle cx="62" cy="16" r="16" fill="#56606C"/><circle cx="86" cy="26" r="14" fill="#56606C"/></g>' +
+    '<g class="flame" id="flame" style="--f:' + f + '"><path d="M65 104c-16-6-22-20-12-34 3 6 7 8 10 8-4-12 2-24 12-32 0 10 8 16 12 26 4 10-2 28-22 32z" fill="#F05A33"/><path d="M65 104c-9-4-11-12-6-20 2 3 5 5 7 4-1-7 2-12 7-16 1 7 6 10 7 16 2 8-4 14-15 16z" fill="#FFC400"/></g></svg>';
+}
+
+/* ---------- state ---------- */
+const params = new URLSearchParams(location.search);
+const only = EXT[params.get("type")] ? params.get("type") : null;     // ?type=co2 practises one extinguisher type
+let list = only ? SCENARIOS.filter(s => s.type === only) : SCENARIOS.slice();
+let S = null;
+function newGame(all){
+  if(all) list = SCENARIOS.slice();
+  S = {i:0, lives:3, score:0, results:[], phase:"choose", step:0, mistakes:0, picked:null, order:[]};
+  render();
+}
+
+function header(){
+  bar.textContent = "";
+  const sc = S && S.i < list.length ? list[S.i] : null;
+  bar.appendChild(el("span", "", sc ? "Scenario " + (S.i+1) + " of " + list.length : "Finished"));
+  const mid = el("span", "hearts"); mid.setAttribute("aria-label", S.lives + " lives left");
+  mid.textContent = "♥".repeat(S.lives) + "♡".repeat(3 - S.lives);
+  bar.appendChild(mid);
+  bar.appendChild(el("span", "muted", "Score " + S.score));
+}
+
+/* ---------- screens ---------- */
+function render(){
+  header();
+  stage.textContent = "";
+  if(S.i >= list.length || (S.lives <= 0 && S.phase !== "outcome")){ return renderEnd(); }
+  const sc = list[S.i];
+
+  const scene = el("div", "scene");
+  const pic = el("div", "pic"); pic.id = "pic"; pic.innerHTML = sceneSvg(sc.icon, sc.big);
+  const story = el("div", "story");
+  story.appendChild(el("span", "tag", sc.place));
+  story.appendChild(el("h2", "", sc.title));
+  story.appendChild(el("p", "", sc.text));
+  if(sc.tip){ const t = el("p", "disc", "Tip: " + sc.tip); story.appendChild(t); }
+  scene.appendChild(pic); scene.appendChild(story);
+  stage.appendChild(scene);
+
+  if(S.phase === "choose") renderChoose(sc);
+  else if(S.phase === "pass") renderPass(sc);
+  else renderOutcome(sc);
+}
+
+function renderChoose(sc){
+  stage.appendChild(el("p", "msg", sc.big ? "What do you do?" : "Which extinguisher do you take?"));
+  const grid = el("div", "grid");
+  ORDER.forEach(k => {
+    const b = el("button", "opt"); b.type = "button"; b.dataset.k = k;
+    b.innerHTML = extSvg();
+    b.appendChild(el("span", "", EXT[k].name));
+    b.appendChild(el("small", "", EXT[k].sub));
+    b.addEventListener("click", () => choose(k));
+    grid.appendChild(b);
+  });
+  if(sc.big){
+    const b = el("button", "opt leave", "Leave, close the door, raise the alarm, call 112"); b.type = "button"; b.dataset.k = "leave";
+    b.addEventListener("click", () => choose("leave"));
+    grid.appendChild(b);
+  }
+  stage.appendChild(grid);
+}
+
+function choose(k){
+  const sc = list[S.i];
+  S.picked = k;
+  const isBest = sc.best.indexOf(k) >= 0, isOk = sc.ok.indexOf(k) >= 0;
+  stage.querySelectorAll(".opt").forEach(b => {
+    b.disabled = true;
+    if(b.dataset.k === k) b.classList.add(isBest || isOk ? "right" : "wrong");
+  });
+  if(isBest || isOk){
+    S.grade = isBest ? "best" : "ok";
+    if(sc.big){ S.phase = "outcome"; S.score += 100; S.results.push({title:sc.title, text:"Left the building: correct (+100)", good:true}); S.fought = false; render(); return; }
+    setTimeout(() => { S.phase = "pass"; S.step = 0; S.mistakes = 0; S.order = shuffle(STEPS); render(); }, 450);
+  }else{
+    S.grade = "bad"; S.lives--; S.score = Math.max(0, S.score);
+    const pic = $("pic"); if(pic) pic.classList.add("grow");
+    stage.querySelectorAll(".opt").forEach(b => { if(b.dataset.k === k) b.classList.add("shake"); });
+    S.results.push({title:sc.title, text:"Wrong choice: " + (k === "leave" ? "left too early" : EXT[k].name) + " (0)", good:false});
+    setTimeout(() => { S.phase = "outcome"; render(); const pic2 = $("pic"); if(pic2) pic2.classList.add("grow"); }, 700);
+  }
+}
+
+function renderPass(sc){
+  const t = EXT[S.picked];
+  stage.appendChild(el("p", "msg" + (S.grade === "ok" ? "" : " good"),
+    S.grade === "ok" ? t.name + " will work, though it is not the best choice. Now use it: tap the steps in the right order (P, A, S, S)."
+                     : "Good choice: " + t.name + ". Now tap the steps in the right order (P, A, S, S)."));
+  const slots = el("div", "steps"); slots.id = "slots";
+  STEPS.forEach((s, i) => {
+    const d = el("div", "slot" + (i < S.step ? " done" : ""));
+    d.appendChild(el("b", "", (i+1) + ". " + (i < S.step ? s.t : "?")));
+    d.appendChild(el("span", "", i < S.step ? s.d + ((TIPS[S.picked] && TIPS[S.picked][s.k]) ? " " + TIPS[S.picked][s.k] : "") : ""));
+    slots.appendChild(d);
+  });
+  stage.appendChild(slots);
+  const pic = $("pic");
+  const f = S.step >= 4 ? 0 : (S.step >= 3 ? 0.55 : 1);
+  if(pic){ const fl = pic.querySelector(".flame"); if(fl) fl.style.setProperty("--f", String(f)); if(S.step >= 4) pic.classList.add("out"); }
+  const grid = el("div", "grid"); grid.id = "choices";
+  S.order.forEach(s => {
+    if(STEPS.findIndex(x => x.k === s.k) < S.step) return;      // done steps are gone
+    const b = el("button", "opt"); b.type = "button"; b.dataset.k = s.k;
+    b.appendChild(el("span", "", s.t)); b.appendChild(el("small", "", s.d));
+    b.addEventListener("click", () => pick(s.k, b));
+    grid.appendChild(b);
+  });
+  stage.appendChild(grid);
+  stage.appendChild(el("div", "msg", "")).id = "hint";
+  $("hint").hidden = true;
+}
+
+function pick(k, btn){
+  const want = STEPS[S.step].k;
+  if(k === want){
+    S.step++;
+    if(S.step >= STEPS.length){
+      const base = S.grade === "best" ? 100 : 60;
+      const pts = Math.max(20, base - 10 * S.mistakes);
+      S.score += pts;
+      const sc = list[S.i];
+      S.results.push({title:sc.title, text:(S.grade === "best" ? "Best choice" : "Acceptable choice") + ", fire out, " + S.mistakes + " order mistake(s) (+" + pts + ")", good:true});
+      S.pts = pts;
+      S.phase = "pass";                               // show the finished steps and the flames going out first
+      render();
+      const grid = $("choices"); if(grid) grid.remove();
+      const h = $("hint"); if(h) h.remove();
+      setTimeout(() => { S.phase = "outcome"; render(); const pic = $("pic"); if(pic){ pic.classList.add("out"); const fl = pic.querySelector(".flame"); if(fl) fl.style.setProperty("--f","0"); } }, 900);
+    }else render();
+  }else{
+    S.mistakes++;
+    btn.classList.add("wrong", "shake");
+    const h = $("hint"); h.hidden = false; h.className = "msg bad"; h.textContent = "Not yet. Next is step " + (S.step + 1) + " of P-A-S-S: Pull, Aim, Squeeze, Sweep.";
+    setTimeout(() => btn.classList.remove("wrong", "shake"), 400);
+  }
+}
+
+function renderOutcome(sc){
+  const k = S.picked, good = S.grade !== "bad";
+  const box = el("div", "msg " + (good ? "good" : "bad"));
+  box.appendChild(el("b", "", good ? (sc.big ? "Correct: you got out safely." : "The fire is out.") : "Not the right choice. The fire gets worse."));
+  box.appendChild(document.createTextNode(sc.why[k] || ""));
+  if(S.grade === "ok"){ box.appendChild(document.createTextNode("\nBest choice here: " + EXT[sc.best[0]].name + ". " + sc.why[sc.best[0]])); }
+  if(S.grade === "bad"){
+    const b = sc.best[0];
+    box.appendChild(document.createTextNode("\nThe right move: " + (b === "leave" ? "leave and call 112" : EXT[b].name) + ". " + sc.why[b]));
+    box.appendChild(document.createTextNode("\nYou lose a life."));
+  }
+  stage.appendChild(box);
+  const row = el("div", "row");
+  const next = el("button", "btn", S.i + 1 >= list.length || S.lives <= 0 ? "See results" : "Next scenario"); next.type = "button";
+  next.addEventListener("click", () => { S.i++; S.phase = "choose"; S.picked = null; render(); window.scrollTo({top:0}); });
+  row.appendChild(next); stage.appendChild(row);
+  const pic = $("pic");
+  if(pic && good && !sc.big){ pic.classList.add("out"); const fl = pic.querySelector(".flame"); if(fl) fl.style.setProperty("--f","0"); }
+  if(pic && !good){ pic.classList.add("grow"); }
+  next.focus({preventScroll:true});
+}
+
+function renderEnd(){
+  header();
+  stage.textContent = "";
+  const total = list.length, good = S.results.filter(r => r.good).length;
+  stage.appendChild(el("h2", "", S.lives <= 0 ? "Game over" : "Training complete"));
+  const stars = good === total ? 3 : good >= total - 2 ? 2 : good >= 1 ? 1 : 0;
+  const st = el("div", "stars", "★".repeat(stars) + "☆".repeat(3 - stars)); st.setAttribute("aria-label", stars + " of 3 stars");
+  stage.appendChild(st);
+  stage.appendChild(el("p", "", "Score " + S.score + ". " + good + " of " + total + " scenarios solved."));
+  const ul = el("ul", "results");
+  S.results.forEach(r => { const li = el("li"); li.appendChild(el("span", "", r.title)); li.appendChild(el("span", r.good ? "yes" : "no", r.text)); ul.appendChild(li); });
+  stage.appendChild(ul);
+
+  stage.appendChild(el("h2", "", "Which extinguisher for what")).style.marginTop = "20px";
+  const tbl = el("table");
+  const rows = [["", "Paper, wood", "Liquids", "Live electrical", "Cooking oil"],
+    ["Water", "yes", "no", "no", "no"], ["Foam", "yes", "yes", "no", "no"], ["ABC powder", "yes", "yes", "ok", "no"],
+    ["CO₂", "no", "ok", "yes", "no"], ["Wet chemical (F)", "ok", "no", "no", "yes"]];
+  rows.forEach((r, ri) => {
+    const tr = el("tr");
+    r.forEach((c, ci) => {
+      const cell = el(ri === 0 || ci === 0 ? "th" : "td", ci > 0 && ri > 0 ? (c === "yes" ? "yes" : c === "no" ? "no" : "") : "", ci > 0 && ri > 0 ? (c === "yes" ? "Yes" : c === "no" ? "No" : "Works") : c);
+      tr.appendChild(cell);
+    });
+    tbl.appendChild(tr);
+  });
+  stage.appendChild(tbl);
+  stage.appendChild(el("p", "disc", "General guidance. Always read the label of the real extinguisher. Wet chemical on solids is limited. CO₂ and powder on liquids work only on small fires."));
+
+  const row = el("div", "row");
+  const again = el("button", "btn", "Play again"); again.type = "button"; again.addEventListener("click", () => newGame(true));
+  const home = el("a", "btn alt", "Back to the assistant"); home.href = "/"; home.style.textDecoration = "none"; home.style.display = "inline-flex"; home.style.alignItems = "center";
+  row.appendChild(again); row.appendChild(home); stage.appendChild(row);
+}
+
+/* ---------- ask the assistant (answers only from the approved documents) ---------- */
+const sessionId = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : String(Date.now()) + Math.random().toString(16).slice(2);
+let busy = false;
+$("askbtn").addEventListener("click", async () => {
+  const q = $("q").value.trim(); if(!q || busy) return;
+  busy = true; const ans = $("ans"); ans.textContent = "Searching the documents ...";
+  let ctx = "";
+  if(S && S.i < list.length){ const sc = list[S.i]; ctx = "I am doing extinguisher training (scenario: " + sc.title + "). "; }
+  try{
+    const r = await fetch("/ask", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({question:ctx + q, session_id:sessionId, zone:null, position:null})});
+    if(!r.ok) throw new Error("HTTP " + r.status);
+    const d = await r.json();
+    ans.textContent = d.answer;
+    if(d.sources && d.sources.length){ const s = el("span", "src", "Sources: " + d.sources.map(x => x.source_doc + (x.page ? ", p." + x.page : "")).join("; ")); ans.appendChild(s); }
+  }catch(e){ ans.textContent = "The assistant is not reachable. In an emergency call 112."; }
+  busy = false;
+});
+
+newGame(false);
+})();
+</script>
+</body>
+</html>
