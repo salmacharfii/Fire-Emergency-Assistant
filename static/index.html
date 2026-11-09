@@ -33,6 +33,20 @@ button,input,select,textarea{font:inherit;color:inherit}
 button{cursor:pointer}
 :focus-visible{outline:3px solid var(--fire);outline-offset:2px}
 [hidden]{display:none!important}
+.sosbox{background:var(--surface);border:2px solid var(--fire);border-radius:10px;padding:12px 14px;display:flex;flex-direction:column;gap:10px}
+.sosbox .srow{display:flex;flex-wrap:wrap;gap:8px}
+.sosbox .srow input{flex:1 1 220px;min-width:0;padding:10px 12px;border:1px solid var(--line);border-radius:6px;background:var(--bg);min-height:44px}
+.sosbox .sbtn{background:var(--fire);color:var(--fire-ink);border:0;border-radius:6px;padding:10px 16px;font-weight:700;min-height:44px}
+.sosbox .sbtn.armed{outline:3px solid var(--fg)}
+.sosbox .small{margin:0;font-size:.85rem;color:var(--muted)}
+.sosbox ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.sosbox li{border:1px solid var(--fire);border-radius:8px;padding:8px 10px;background:var(--warn-bg);display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center}
+.sosbox li .t{flex:1 1 200px;min-width:0}
+.sosbox li button{border:1px solid var(--fire);background:var(--surface);color:var(--fg);border-radius:6px;padding:6px 10px;min-height:36px}
+.sostag{position:absolute;transform:translate(-50%,-50%);background:var(--fire);color:var(--fire-ink);font-weight:800;font-size:.8rem;border:2px solid #fff;border-radius:999px;padding:3px 9px;pointer-events:none;z-index:6;box-shadow:0 0 0 0 rgba(214,58,20,.7);animation:sospulse 1.4s infinite}
+@keyframes sospulse{70%{box-shadow:0 0 0 14px rgba(214,58,20,0)}100%{box-shadow:0 0 0 0 rgba(214,58,20,0)}}
+@media (prefers-reduced-motion: reduce){.sostag{animation:none}}
+
 .alerts{border:2px solid var(--fire);background:var(--warn-bg);border-radius:10px;padding:10px 14px}
 .alerts summary{cursor:pointer;font-weight:600}
 .alerts ul{margin:8px 0 0;padding-left:20px}
@@ -177,6 +191,22 @@ button{cursor:pointer}
     <a href="tel:112">Call 112</a>
   </section>
 
+  <section class="sosbox" id="sosbox" aria-label="SOS for people who are trapped">
+    <div id="sos-own" hidden>
+      <b id="sos-own-text"></b>
+      <div class="srow" style="margin-top:6px"><button class="sbtn" id="sos-cancel" type="button">Cancel my SOS</button></div>
+    </div>
+    <div id="sos-send">
+      <div class="srow">
+        <input id="sos-note" type="text" maxlength="120" placeholder="Optional: what is happening? (door blocked, smoke, injured)" aria-label="What is happening">
+        <button class="sbtn" id="sos-btn" type="button">I am trapped: send SOS</button>
+      </div>
+      <p class="small">First tap the plan where you are. Your SOS is shown to everyone using this app. It does not call anyone: call 112 as well.</p>
+    </div>
+    <ul id="sos-list" aria-live="polite"></ul>
+    <p class="small" id="sos-warn" hidden>Only help if it is safe. Never enter smoke or fire. Call 112 and tell them where the person is.</p>
+  </section>
+
   <div class="site" id="siteinfo" hidden></div>
 
   <div class="grid">
@@ -212,11 +242,13 @@ button{cursor:pointer}
             <button class="btn danger" id="w-del" type="button" hidden>Delete selected wall</button>
           </div>
           <p class="hint" id="w-hint" hidden>Draw walls: click where a wall starts, then where it ends. Walls are always drawn horizontal or vertical. Select wall: click a wall, then delete it. Add door: click on a wall to open a door there (green); click a green door again to remove it. Set the plan width in metres first. Walls are only used to work out walking routes and are not shown to employees.</p>
+          <div class="row"><button class="btn" id="qr-all" type="button">Print QR codes for all rooms</button></div>
           <div class="row" id="a-sel" hidden>
             <div class="field"><label for="s-label">Label</label><input id="s-label" type="text" maxlength="60"></div>
             <div class="field"><label for="s-type">Type</label><select id="s-type"></select></div>
             <div class="field" id="s-kindbox"><label for="s-kind">Extinguisher type</label><select id="s-kind"></select></div>
             <div class="field" id="s-datebox"><label for="s-date">Next inspection due</label><input id="s-date" type="date"></div>
+            <button class="btn" id="s-qr" type="button" hidden>QR code for this room</button>
             <button class="btn danger" id="s-del" type="button">Delete marker</button>
           </div>
           <div class="row">
@@ -281,6 +313,7 @@ button{cursor:pointer}
   <p class="foot">This page gives general guidance from approved documents and does not replace the fire service or medical care. Distances on the plan are estimates. When in doubt: leave the danger area and call 112.</p>
 </div>
 
+<script src="/qrcode.js"></script>
 <script>
 (function(){
 "use strict";
@@ -423,6 +456,12 @@ function renderStage(){
     me.innerHTML = "<i></i><span>You</span>";
     stage.appendChild(me);
   }
+  SOSL.filter(s => s.floor === f.id).forEach(s => {                  // SOS tags of trapped people
+    const t = document.createElement("div"); t.className = "sostag";
+    t.style.left = (s.x*100) + "%"; t.style.top = (s.y*100) + "%";
+    t.textContent = ownSos && ownSos.id === s.id ? "SOS (you)" : "SOS";
+    stage.appendChild(t);
+  });
   $("clearme").hidden = !S.me;
 }
 function renderLegend(){
@@ -752,7 +791,7 @@ function syncSel(){
   const m = selMarker(); $("a-sel").hidden = !(S.editing && m); if(!m) return;
   const lab = $("s-label"); if(document.activeElement !== lab) lab.value = m.l || "";
   $("s-type").value = m.t; $("s-kindbox").hidden = m.t !== "ext"; $("s-kind").value = m.k || "abc";
-  $("s-datebox").hidden = m.t !== "ext"; setField($("s-date"), m.d || "");
+  $("s-qr").hidden = m.t !== "room"; $("s-datebox").hidden = m.t !== "ext"; setField($("s-date"), m.d || "");
 }
 function setField(el,v){ if(document.activeElement !== el) el.value = v; }
 function syncAdmin(){
@@ -940,7 +979,100 @@ async function loadAlerts(){                         // warns about extinguisher
     });
   }catch(e){}
 }
-loadPlan(); loadZones(); loadAlerts(); setInterval(loadAlerts, 6 * 60 * 60 * 1000);
+/* ---------- SOS: a trapped person marks the plan, everybody else sees the tag ---------- */
+let SOSL = [], ownSos = null, sosArmTimer = null, seenSos = new Set(), sosReady = false, baseTitle = document.title;
+try{ ownSos = JSON.parse(sessionStorage.getItem("fa-sos") || "null"); }catch(e){}
+const helperId = (() => { try{ let v = sessionStorage.getItem("fa-helper"); if(!v){ v = Math.random().toString(36).slice(2,12); sessionStorage.setItem("fa-helper", v); } return v; }catch(e){ return Math.random().toString(36).slice(2,12); } })();
+const helped = new Set();
+function saveOwn(){ try{ if(ownSos) sessionStorage.setItem("fa-sos", JSON.stringify(ownSos)); else sessionStorage.removeItem("fa-sos"); }catch(e){} }
+function ago(s){ return s < 60 ? "just now" : Math.round(s/60) + " min ago"; }
+function renderSos(){
+  const list = $("sos-list"); list.textContent = "";
+  const own = ownSos && SOSL.find(s => s.id === ownSos.id);
+  $("sos-own").hidden = !own; $("sos-send").hidden = !!own;
+  if(own){ $("sos-own-text").textContent = "Your SOS is on the plan. " + (own.helpers ? own.helpers + " colleague(s) are on the way. " : "Nobody has answered yet. ") + "Call 112 and stay where you are if you can."; }
+  const others = SOSL.filter(s => !ownSos || s.id !== ownSos.id);
+  $("sos-warn").hidden = others.length === 0;
+  others.forEach(s => {
+    const li = document.createElement("li"), t = document.createElement("span"); t.className = "t";
+    const fl = S.plan.floors.find(f => f.id === s.floor);
+    t.textContent = "SOS" + (s.room ? " near " + s.room : "") + (S.plan.floors.length > 1 && fl ? " (" + fl.name + ")" : "") + ", " + ago(s.age) + (s.note ? ': "' + s.note + '"' : "") + (s.helpers ? " · " + s.helpers + " on the way" : "");
+    li.appendChild(t);
+    const show = document.createElement("button"); show.type = "button"; show.textContent = "Show on plan";
+    show.addEventListener("click", () => { S.floorId = s.floor; S.sel = null; renderFloors(); renderStage(); stage.scrollIntoView({behavior:"smooth", block:"center"}); });
+    li.appendChild(show);
+    const go = document.createElement("button"); go.type = "button"; go.disabled = helped.has(s.id); go.textContent = go.disabled ? "Thank you, noted" : "I am on my way";
+    go.addEventListener("click", async () => { helped.add(s.id); go.disabled = true; go.textContent = "Thank you, noted"; try{ await fetch("/sos/" + s.id + "/help", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({helper:helperId})}); }catch(e){} });
+    li.appendChild(go);
+    if(S.token){ const rm = document.createElement("button"); rm.type = "button"; rm.textContent = "Remove (admin)"; rm.addEventListener("click", async () => { try{ await fetch("/sos/" + s.id, {method:"DELETE", headers:{"X-Admin-Token":S.token}}); }catch(e){} pollSos(); }); li.appendChild(rm); }
+    list.appendChild(li);
+  });
+  renderStage();
+}
+async function pollSos(){
+  if(document.hidden) return;
+  try{
+    const r = await fetch("/sos"); if(!r.ok) return;
+    SOSL = await r.json();
+    if(ownSos && !SOSL.some(s => s.id === ownSos.id)){ ownSos = null; saveOwn(); }   // cancelled, removed by the admin or expired
+    const fresh = SOSL.filter(s => !seenSos.has(s.id) && !(ownSos && s.id === ownSos.id));
+    SOSL.forEach(s => seenSos.add(s.id));
+    if(fresh.length && sosReady){                                  // somebody new needs help: nudge this phone
+      try{ navigator.vibrate && navigator.vibrate([300,150,300]); }catch(e){}
+      document.title = "SOS! " + baseTitle; setTimeout(() => { document.title = baseTitle; }, 10000);
+    }
+    sosReady = true; renderSos();
+  }catch(e){}
+}
+$("sos-btn").addEventListener("click", async function(){
+  if(!S.me){ setInfo("Tap the plan where you are first, then send the SOS. If you cannot, call 112."); return; }
+  if(!this.classList.contains("armed")){                         // two taps, so nobody sends it by accident
+    this.classList.add("armed"); this.textContent = "Tap again to send the SOS";
+    sosArmTimer = setTimeout(() => { this.classList.remove("armed"); this.textContent = "I am trapped: send SOS"; }, 5000); return;
+  }
+  clearTimeout(sosArmTimer); this.classList.remove("armed"); this.textContent = "I am trapped: send SOS";
+  try{
+    const r = await fetch("/sos", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({floor:S.me.floorId, x:S.me.x, y:S.me.y, note:$("sos-note").value})});
+    if(!r.ok){ const j = await r.json().catch(() => ({})); setInfo((j.detail || "The SOS could not be sent.") + " Call 112."); return; }
+    ownSos = await r.json(); saveOwn(); $("sos-note").value = ""; pollSos();
+  }catch(e){ setInfo("The SOS could not be sent. Call 112."); }
+});
+$("sos-cancel").addEventListener("click", async () => {
+  if(!ownSos) return;
+  try{ await fetch("/sos/" + ownSos.id, {method:"DELETE", headers:{"X-Sos-Key":ownSos.key}}); }catch(e){}
+  ownSos = null; saveOwn(); pollSos();
+});
+setInterval(() => { if(ownSos) fetch("/sos/" + ownSos.id + "/ping", {method:"POST", headers:{"X-Sos-Key":ownSos.key}}).catch(() => {}); }, 60000);   // keeps the SOS alive while this page is open
+setInterval(pollSos, 5000);
+
+/* ---------- QR codes: one per room, scanning sets the position ---------- */
+function roomUrl(floorId, id){ return location.origin + "/?room=" + encodeURIComponent(floorId + "|" + id); }
+function qrSvg(url){ const q = qrcode(0, "M"); q.addData(url); q.make(); return q.createSvgTag({cellSize:6, margin:2, scalable:true}); }
+function escHtml(s){ return String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+function printQr(rooms){                             // opens a printable sheet: room name, QR code, short instruction
+  if(!rooms.length){ setInfo("Give the room a label first. Only labelled rooms get a QR code."); return; }
+  if(/^(localhost|127\.)/.test(location.hostname) && !confirm("You opened the app on this computer (" + location.host + "). The QR codes would only work here. Open the live web address and print from there. Print anyway?")) return;
+  const many = S.plan.floors.length > 1;
+  const cards = rooms.map(r => '<section><h2>' + escHtml(r.label) + '</h2>' + (many && r.floorName ? '<p class="fl">' + escHtml(r.floorName) + '</p>' : '') +
+    '<div class="qr">' + qrSvg(roomUrl(r.floorId, r.id)) + '</div><p>Scan to mark where you are.<br>Fire: leave the building and call <b>112</b>.</p></section>').join("");
+  const w = window.open("", "_blank");
+  if(!w){ setInfo("The browser blocked the print window. Allow pop-ups for this page and try again."); return; }
+  w.document.write('<!doctype html><meta charset="utf-8"><title>Room QR codes</title><style>body{font-family:Arial,sans-serif;margin:16px}' +
+    '.g{display:grid;grid-template-columns:repeat(2,1fr);gap:16px}section{border:2px solid #222;border-radius:8px;padding:14px;text-align:center;break-inside:avoid}' +
+    'h2{margin:0 0 4px;font-size:22px}.fl{margin:0;color:#555}.qr{width:220px;margin:8px auto}.qr svg{width:100%;height:auto}p{margin:6px 0;font-size:14px}</style><div class="g">' + cards + '</div>');
+  w.document.close(); w.focus(); setTimeout(() => w.print(), 300);
+}
+$("qr-all").addEventListener("click", () => printQr(roomList()));
+$("s-qr").addEventListener("click", () => { const m = selMarker(), f = cur(); if(!m || !f) return; printQr(roomList().filter(r => r.floorId === f.id && r.id === m.id)); });
+function applyDeepLink(){                            // a scanned QR code opens /?room=floor|id: set the position in that room
+  const v = new URLSearchParams(location.search).get("room"); if(!v) return;
+  const p = v.split("|"), room = roomList().find(r => r.floorId === p[0] && r.id === p[1]);
+  if(room){ S.zone = null; S.floorId = room.floorId; S.sel = null; renderFloors(); setMe(room.x, room.y); }
+  else setInfo("This QR code does not match a room on the plan. Tap the plan to mark where you are.");
+  try{ history.replaceState(null, "", location.pathname); }catch(e){}
+}
+
+Promise.all([loadPlan(), loadZones()]).then(applyDeepLink).then(pollSos); loadAlerts(); setInterval(loadAlerts, 6 * 60 * 60 * 1000);
 })();
 </script>
 </body>
