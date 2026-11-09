@@ -33,6 +33,15 @@ button,input,select,textarea{font:inherit;color:inherit}
 button{cursor:pointer}
 :focus-visible{outline:3px solid var(--fire);outline-offset:2px}
 [hidden]{display:none!important}
+#printsheet{display:none}
+@media print{
+  body.printing > *:not(#printsheet){display:none!important}
+  body.printing #printsheet{display:grid;grid-template-columns:repeat(2,1fr);gap:16px;background:#fff;color:#000;font-family:Arial,sans-serif}
+  #printsheet section{border:2px solid #222;border-radius:8px;padding:14px;text-align:center;break-inside:avoid}
+  #printsheet h2{margin:0 0 4px;font-size:22px}#printsheet .fl{margin:0;color:#555}
+  #printsheet .qr{width:220px;margin:8px auto}#printsheet .qr svg{width:100%;height:auto}#printsheet p{margin:6px 0;font-size:14px}
+}
+
 .sosbox{background:var(--surface);border:2px solid var(--fire);border-radius:10px;padding:12px 14px;display:flex;flex-direction:column;gap:10px}
 .sosbox .srow{display:flex;flex-wrap:wrap;gap:8px}
 .sosbox .srow input{flex:1 1 220px;min-width:0;padding:10px 12px;border:1px solid var(--line);border-radius:6px;background:var(--bg);min-height:44px}
@@ -168,6 +177,7 @@ button{cursor:pointer}
 </style>
 </head>
 <body>
+<div id="printsheet" aria-hidden="true"></div>
 <div class="wrap">
   <header class="top">
     <div class="brand">
@@ -1049,19 +1059,26 @@ setInterval(pollSos, 5000);
 function roomUrl(floorId, id){ return location.origin + "/?room=" + encodeURIComponent(floorId + "|" + id); }
 function qrSvg(url){ const q = qrcode(0, "M"); q.addData(url); q.make(); return q.createSvgTag({cellSize:6, margin:2, scalable:true}); }
 function escHtml(s){ return String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
-function printQr(rooms){                             // opens a printable sheet: room name, QR code, short instruction
-  if(!rooms.length){ setInfo("Give the room a label first. Only labelled rooms get a QR code."); return; }
+function printQr(rooms){                             // prints a sheet in this page (no pop-up window, so nothing can block it)
+  if(typeof qrcode !== "function"){ setInfo("The QR library is missing. Upload static/qrcode.js to your project and redeploy."); return; }
+  if(!rooms.length){ setInfo("No room has a label yet. Select a room marker, give it a label, then try again."); return; }
   if(/^(localhost|127\.)/.test(location.hostname) && !confirm("You opened the app on this computer (" + location.host + "). The QR codes would only work here. Open the live web address and print from there. Print anyway?")) return;
-  const many = S.plan.floors.length > 1;
-  const cards = rooms.map(r => '<section><h2>' + escHtml(r.label) + '</h2>' + (many && r.floorName ? '<p class="fl">' + escHtml(r.floorName) + '</p>' : '') +
-    '<div class="qr">' + qrSvg(roomUrl(r.floorId, r.id)) + '</div><p>Scan to mark where you are.<br>Fire: leave the building and call <b>112</b>.</p></section>').join("");
-  const w = window.open("", "_blank");
-  if(!w){ setInfo("The browser blocked the print window. Allow pop-ups for this page and try again."); return; }
-  w.document.write('<!doctype html><meta charset="utf-8"><title>Room QR codes</title><style>body{font-family:Arial,sans-serif;margin:16px}' +
-    '.g{display:grid;grid-template-columns:repeat(2,1fr);gap:16px}section{border:2px solid #222;border-radius:8px;padding:14px;text-align:center;break-inside:avoid}' +
-    'h2{margin:0 0 4px;font-size:22px}.fl{margin:0;color:#555}.qr{width:220px;margin:8px auto}.qr svg{width:100%;height:auto}p{margin:6px 0;font-size:14px}</style><div class="g">' + cards + '</div>');
-  w.document.close(); w.focus(); setTimeout(() => w.print(), 300);
+  try{
+    const many = S.plan.floors.length > 1, sheet = $("printsheet");
+    sheet.textContent = "";
+    rooms.forEach(r => {
+      const card = document.createElement("section");
+      const h2 = document.createElement("h2"); h2.textContent = r.label; card.appendChild(h2);
+      if(many && r.floorName){ const fl = document.createElement("p"); fl.className = "fl"; fl.textContent = r.floorName; card.appendChild(fl); }
+      const qr = document.createElement("div"); qr.className = "qr"; qr.innerHTML = qrSvg(roomUrl(r.floorId, r.id)); card.appendChild(qr);
+      const tx = document.createElement("p"); tx.innerHTML = "Scan to mark where you are.<br>Fire: leave the building and call <b>112</b>."; card.appendChild(tx);
+      sheet.appendChild(card);
+    });
+    document.body.classList.add("printing");
+    setTimeout(() => window.print(), 200);
+  }catch(e){ setInfo("The QR codes could not be made: " + e.message); }
 }
+window.addEventListener("afterprint", () => document.body.classList.remove("printing"));
 $("qr-all").addEventListener("click", () => printQr(roomList()));
 $("s-qr").addEventListener("click", () => { const m = selMarker(), f = cur(); if(!m || !f) return; printQr(roomList().filter(r => r.floorId === f.id && r.id === m.id)); });
 function applyDeepLink(){                            // a scanned QR code opens /?room=floor|id: set the position in that room
