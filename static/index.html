@@ -310,7 +310,7 @@ button{cursor:pointer}
       <li><b>Where</b> is the fire? Place, street, number, floor</li>
       <li><b>What</b> happened? Type of fire</li>
       <li><b>How many</b> people are affected?</li>
-      <li><b>What</b> injuries are there?</li>
+      <li><b>Which</b> injuries are there?</li>
       <li><b>Wait</b> for questions. Hang up only when the dispatcher says so.</li></ol></div>
     <div class="ref"><h2>Trapped?</h2><ul>
       <li>Close the door and seal gaps with wet cloths</li>
@@ -322,7 +322,7 @@ button{cursor:pointer}
 
   <p class="foot">This page gives general guidance from approved documents and does not replace the fire service or medical care. Distances on the plan are estimates. When in doubt: leave the danger area and call 112.</p>
 </div>
-
+<script src="/i18n.js"></script>
 <script src="/qrcode.js"></script>
 <script src="/access.js"></script>
 <script>
@@ -1065,7 +1065,7 @@ function escHtml(s){ return String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<"
 function printQr(rooms){                             // prints a sheet in this page (no pop-up window, so nothing can block it)
   if(typeof qrcode !== "function"){ setInfo("The QR library is missing. Upload static/qrcode.js to your project and redeploy."); return; }
   if(!rooms.length){ setInfo("No room has a label yet. Select a room marker, give it a label, then try again."); return; }
-  if(/^(localhost|127\.)/.test(location.hostname) && !confirm("You opened the app on this computer (" + location.host + "). The QR codes would only work here. Open the live web address and print from there. Print anyway?")) return;
+  if(/^(localhost|127\.)/.test(location.hostname) && !confirm(I18N.tr("You opened … Print anyway?"))) return;
   try{
     const many = S.plan.floors.length > 1, sheet = $("printsheet");
     sheet.textContent = "";
