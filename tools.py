@@ -6,6 +6,7 @@ from langchain_core.runnables import RunnableConfig    # gives a tool access to 
 from config import ZONES_FILE, EQUIPMENT_FILE      # file paths from config.py
 from retrieval import retrieve, format_context, filter_relevant   # the search plus the relevance check
 from plan import load_plan, nearest, describe      # the building plan the admin drew
+from hazards import active_hazards                 # blocked spots and fires reported on the plan
 
 POSITIONS = {}                                     # session_id -> {"floor", "x", "y"}; set by the API before every question
 FOUND = {}                                         # session_id -> marker ids found by find_nearest; the API sends them to the UI
@@ -56,6 +57,7 @@ def get_zone_info(zone: str) -> str:
         return f"NO_RESULTS: unknown zone '{zone}'. Known zones: {', '.join(sorted(zones))}."   # tell the agent what exists
     return (f"Zone {zone}: nearest exit: {info['nearest_exit']}; extinguisher: {info['extinguisher']}; "
             f"alarm button: {info['alarm_button']}; assembly point: {info['assembly_point']}. [zones.json]")   # label for the guard
+
 
 def equipment_alerts(days=30):                     # items overdue or due within `days` days, for the warning banner
     today, out = date.today(), []
@@ -112,13 +114,20 @@ def find_nearest(thing: str, config: RunnableConfig) -> str:
     pos = POSITIONS.get(session_id)                # where the user stands, set by the API
     if pos is None:
         return "NO_RESULTS: the user has not marked a position on the plan."
-    found = nearest(load_plan(), pos["floor"], pos["x"], pos["y"], THING_TYPES[key], n=3)
+    hz = active_hazards(pos["floor"])             # blocked spots and fires reported by people
+    found = nearest(load_plan(), pos["floor"], pos["x"], pos["y"], THING_TYPES[key], n=3, hazards=hz)
     if not found:
+        if hz:
+            return (f"NO_RESULTS: every '{key}' on the user's floor is blocked or next to a fire reported by people. "
+                    "Tell the user to call 112 and, if there is no safe way, to stay low in a room with a closed door and signal at a window.")
         return f"NO_RESULTS: nothing of type '{key}' is marked on the user's floor."
     FOUND[session_id] = [r["marker"]["id"] for r in found]    # the UI highlights these on the plan
     if found[0].get("route"):                      # walls are drawn: the UI also draws the way to the nearest result
         ROUTES[session_id] = found[0]["route"]
     lines = "; ".join(describe(r) for r in found)
+    if hz:
+        lines += (f". Reported by people and already avoided: {sum(h['kind'] == 'blocked' for h in hz)} blocked spot(s), "
+                  f"{sum(h['kind'] == 'fire' for h in hz)} fire(s); tell the user these reports may be out of date")
     if found[0].get("walking"):
         basis = "walking distance around the walls drawn on the plan; fire, smoke and blocked doors are not known"
     elif found[0].get("blocked"):

@@ -251,7 +251,7 @@ def _route(cols, rows, parent, dist, goal, dx, dy, x, y, gx, gy):   # corner poi
     return [[round(px, 4), round(py, 4)] for px, py in clean], length
 
 
-def nearest(plan, floor_id, x, y, types, kind=None, n=3, walk=True):   # markers of the given types, closest first
+def nearest(plan, floor_id, x, y, types, kind=None, n=3, walk=True, hazards=None):   # markers of the given types, closest first
     floor = get_floor(plan, floor_id)
     if floor is None:
         return []
@@ -262,11 +262,19 @@ def nearest(plan, floor_id, x, y, types, kind=None, n=3, walk=True):   # markers
         if m["t"] not in types or (kind and m.get("k") != kind):
             continue
         dx, dy = (m["x"] - x) * width, (m["y"] - y) * height
+        if any(math.hypot((m["x"] - h["x"]) * width, (m["y"] - h["y"]) * height) <= h["r"] for h in hazards or []):
+            continue                               # this exit/extinguisher/... is blocked or next to a fire
         found.append({"marker": m, "distance": math.hypot(dx, dy),
                       "direction": direction(dx, dy), "scaled": bool(floor.get("widthM"))})
     found.sort(key=lambda r: r["distance"])
     if walk and found and floor.get("walls") and floor.get("widthM"):   # walls are drawn: measure the way a person walks
         cols, rows, blocked, cw, ch = _grid(floor)
+        for h in hazards or []:                    # blocked spots and fires are closed to the route, after the exit openings
+            hr0, hc0 = _cell(cols, rows, h["x"], h["y"])
+            for r in range(max(0, hr0 - int(h["r"] / ch) - 1), min(rows, hr0 + int(h["r"] / ch) + 2)):
+                for c in range(max(0, hc0 - int(h["r"] / cw) - 1), min(cols, hc0 + int(h["r"] / cw) + 2)):
+                    if math.hypot((c - hc0) * cw, (r - hr0) * ch) <= h["r"]:
+                        blocked[r * cols + c] = 1
         start = _free_cell(cols, rows, blocked, *_cell(cols, rows, x, y))
         if start is not None:
             dist, parent = _walk_all(cols, rows, blocked, cw, ch, start)

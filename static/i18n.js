@@ -117,6 +117,23 @@
     "Scan to mark where you are.": "Scannen, um Ihren Standort zu markieren.",
     "Fire: leave the building and call": "Feuer: Gebäude verlassen, Notruf",
 
+    // blocked exits and fire reports
+    "Report blocked exit or path": "Blockierten Ausgang oder Weg melden",
+    "Report fire here": "Feuer hier melden",
+    "Optional: what is blocked or burning?": "Optional: Was ist blockiert oder brennt?",
+    "What is blocked or burning": "Was ist blockiert oder brennt",
+    "Report a blocked exit or a fire": "Blockierten Ausgang oder Feuer melden",
+    "First tap the plan where the problem is. Blocked spots appear for everyone at once. A fire appears after a second person reports it nearby (the admin's report counts at once). Routes and answers avoid them. Only the admin can clear a report.": "Tippen Sie zuerst auf den Plan, wo das Problem ist. Blockierte Stellen erscheinen sofort für alle. Ein Feuer erscheint, sobald eine zweite Person es in der Nähe meldet (die Meldung des Admins gilt sofort). Wege und Antworten umgehen diese Stellen. Nur der Admin kann eine Meldung löschen.",
+    "Clear (admin)": "Löschen (Admin)",
+    "FIRE": "FEUER",
+    "BLOCKED": "BLOCKIERT",
+    "Tap the plan where the problem is first, then send the report.": "Tippen Sie zuerst auf den Plan, wo das Problem ist, und senden Sie dann die Meldung.",
+    "The report could not be sent.": "Die Meldung konnte nicht gesendet werden.",
+    "Too many reports from you.": "Zu viele Meldungen von Ihnen.",
+    "Too many active reports.": "Zu viele aktive Meldungen.",
+    "This is already on the plan.": "Das ist bereits im Plan eingetragen.",
+    "The fire is now shown on the plan. Call 112.": "Das Feuer wird jetzt im Plan angezeigt. Rufen Sie die 112 an.",
+    "The blocked spot is now shown on the plan.": "Die blockierte Stelle wird jetzt im Plan angezeigt.",
     // chat
     "Chat": "Chat",
     "Where is …? (from your position)": "Wo ist …? (von Ihrer Position)",
@@ -353,6 +370,9 @@
     [/^Your SOS is on the plan\. (?:(\d+) colleague\(s\) are on the way\.|Nobody has answered yet\.) Call 112 and stay where you are if you can\.$/, function (m) { return "Ihr SOS ist im Plan eingetragen. " + (m[1] ? m[1] + " Kollege(n) sind unterwegs." : "Noch niemand hat geantwortet.") + " Rufen Sie die 112 an und bleiben Sie, wenn möglich, wo Sie sind."; }],
     [/^SOS near [\s\S]*$|^SOS(?: \([^)]*\))?, (?:just now|\d+ min ago)[\s\S]*$/, function (m) {
       return m[0].replace(/^SOS near /, "SOS bei ").replace(/, just now/, ", gerade eben").replace(/, (\d+) min ago/, ", vor $1 Min.").replace(/ · (\d+) on the way$/, " · $1 unterwegs"); }],
+    [/^(FIRE reported|Blocked exit or path)( \([^)]*\))?, (just now|\d+ min ago)(: "[\s\S]*")?$/, function (m) {
+      return (m[1] === "FIRE reported" ? "FEUER gemeldet" : "Blockierter Ausgang oder Weg") + (m[2] || "") + ", " + (m[3] === "just now" ? "gerade eben" : m[3].replace(/(\d+) min ago/, "vor $1 Min.")) + (m[4] || ""); }],
+    [/^Fire report received: (\d+) of (\d+) people\. It appears on the plan when a second person reports it\. Call 112\.$/, function (m) { return "Feuermeldung erhalten: " + m[1] + " von " + m[2] + " Personen. Sie erscheint im Plan, sobald eine zweite Person sie meldet. Rufen Sie die 112 an."; }],
     // game
     [/^Scenario (\d+) of (\d+)$/, function (m) { return "Szenario " + m[1] + " von " + m[2]; }],
     [/^Score (\d+)$/, function (m) { return "Punkte " + m[1]; }],

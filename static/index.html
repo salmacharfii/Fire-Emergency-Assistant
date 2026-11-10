@@ -52,6 +52,21 @@ button{cursor:pointer}
 .sosbox li{border:1px solid var(--fire);border-radius:8px;padding:8px 10px;background:var(--warn-bg);display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center}
 .sosbox li .t{flex:1 1 200px;min-width:0}
 .sosbox li button{border:1px solid var(--fire);background:var(--surface);color:var(--fg);border-radius:6px;padding:6px 10px;min-height:36px}
+.hzbox{background:var(--surface);border:2px solid var(--line);border-radius:10px;padding:12px 14px;display:flex;flex-direction:column;gap:10px}
+.hzbox .srow{display:flex;flex-wrap:wrap;gap:8px}
+.hzbox .srow input{flex:1 1 220px;min-width:0;padding:10px 12px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--fg);min-height:44px}
+.hzbox .hbtn{background:var(--surface);color:var(--fg);border:2px solid var(--fg);border-radius:6px;padding:10px 14px;font-weight:700;min-height:44px}
+.hzbox .hbtn.fire{background:var(--fire);color:var(--fire-ink);border-color:var(--fire)}
+.hzbox .small{margin:0;font-size:.85rem;color:var(--muted)}
+.hzbox ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.hzbox li{border:1px solid var(--line);border-radius:8px;padding:8px 10px;display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center}
+.hzbox li.fire{border-color:var(--fire);background:var(--warn-bg)}
+.hzbox li .t{flex:1 1 200px;min-width:0}
+.hzbox li button{border:1px solid var(--line);background:var(--surface);color:var(--fg);border-radius:6px;padding:6px 10px;min-height:36px}
+.hztag{position:absolute;transform:translate(-50%,-50%);font-weight:800;font-size:.75rem;border:2px solid #fff;border-radius:6px;padding:2px 7px;pointer-events:none;z-index:6;background:#111;color:#fff;white-space:nowrap}
+.hztag.fire{background:var(--fire);color:var(--fire-ink)}
+.hzring{position:absolute;transform:translate(-50%,-50%);aspect-ratio:1;border-radius:50%;pointer-events:none;z-index:2;border:2px dashed var(--fire);background:rgba(214,58,20,.18)}
+.hzring.blocked{border-color:#111;background:repeating-linear-gradient(45deg,rgba(0,0,0,.28) 0 6px,rgba(255,200,0,.35) 6px 12px)}
 .sostag{position:absolute;transform:translate(-50%,-50%);background:var(--fire);color:var(--fire-ink);font-weight:800;font-size:.8rem;border:2px solid #fff;border-radius:999px;padding:3px 9px;pointer-events:none;z-index:6;box-shadow:0 0 0 0 rgba(214,58,20,.7);animation:sospulse 1.4s infinite}
 @keyframes sospulse{70%{box-shadow:0 0 0 14px rgba(214,58,20,0)}100%{box-shadow:0 0 0 0 rgba(214,58,20,0)}}
 @media (prefers-reduced-motion: reduce){.sostag{animation:none}}
@@ -215,6 +230,16 @@ button{cursor:pointer}
     </div>
     <ul id="sos-list" aria-live="polite"></ul>
     <p class="small" id="sos-warn" hidden>Only help if it is safe. Never enter smoke or fire. Call 112 and tell them where the person is.</p>
+  </section>
+
+  <section class="hzbox" id="hzbox" aria-label="Report a blocked exit or a fire">
+    <div class="srow">
+      <input id="hz-note" type="text" maxlength="120" placeholder="Optional: what is blocked or burning?" aria-label="What is blocked or burning">
+      <button class="hbtn" id="hz-block" type="button">Report blocked exit or path</button>
+      <button class="hbtn fire" id="hz-fire" type="button">Report fire here</button>
+    </div>
+    <p class="small" id="hz-help">First tap the plan where the problem is. Blocked spots appear for everyone at once. A fire appears after a second person reports it nearby (the admin's report counts at once). Routes and answers avoid them. Only the admin can clear a report.</p>
+    <ul id="hz-list" aria-live="polite"></ul>
   </section>
 
   <div class="site" id="siteinfo" hidden></div>
@@ -472,6 +497,14 @@ function renderStage(){
     const t = document.createElement("div"); t.className = "sostag";
     t.style.left = (s.x*100) + "%"; t.style.top = (s.y*100) + "%";
     t.textContent = ownSos && ownSos.id === s.id ? "SOS (you)" : "SOS";
+    stage.appendChild(t);
+  });
+  HZL.filter(h => h.floor === f.id).forEach(h => {                   // blocked spots and fires reported by people
+    const w = f.widthM || 0;
+    if(w){ const ring = document.createElement("div"); ring.className = "hzring " + h.kind; ring.style.left = (h.x*100) + "%"; ring.style.top = (h.y*100) + "%"; ring.style.width = (h.r*2/w*100) + "%"; stage.appendChild(ring); }
+    const t = document.createElement("div"); t.className = "hztag " + h.kind;
+    t.style.left = (h.x*100) + "%"; t.style.top = (h.y*100) + "%";
+    t.textContent = h.kind === "fire" ? "FIRE" : "BLOCKED";
     stage.appendChild(t);
   });
   $("clearme").hidden = !S.me;
@@ -1059,6 +1092,58 @@ $("sos-cancel").addEventListener("click", async () => {
 setInterval(() => { if(ownSos) fetch("/sos/" + ownSos.id + "/ping", {method:"POST", headers:{"X-Sos-Key":ownSos.key}}).catch(() => {}); }, 60000);   // keeps the SOS alive while this page is open
 setInterval(pollSos, 5000);
 
+/* ---------- blocked exits/paths and fire sources reported on the plan ---------- */
+let HZL = [], hzSig = "", seenHz = new Set(), hzReady = false;
+let clientId = ""; try{ clientId = localStorage.getItem("fa-client") || ""; if(!clientId){ clientId = Math.random().toString(36).slice(2) + Date.now().toString(36); localStorage.setItem("fa-client", clientId); } }catch(e){ clientId = Math.random().toString(36).slice(2); }
+function renderHz(){
+  const list = $("hz-list"); list.textContent = "";
+  HZL.forEach(h => {
+    const fl = S.plan.floors.find(f => f.id === h.floor);
+    const li = document.createElement("li"); li.className = h.kind;
+    const t = document.createElement("span"); t.className = "t";
+    t.textContent = (h.kind === "fire" ? "FIRE reported" : "Blocked exit or path") + (S.plan.floors.length > 1 && fl ? " (" + fl.name + ")" : "") + ", " + ago(h.age) + (h.note ? ': "' + h.note + '"' : "");
+    li.appendChild(t);
+    const show = document.createElement("button"); show.type = "button"; show.textContent = "Show on plan";
+    show.addEventListener("click", () => { S.floorId = h.floor; renderAll(); });
+    li.appendChild(show);
+    if(S.token){ const rm = document.createElement("button"); rm.type = "button"; rm.textContent = "Clear (admin)"; rm.addEventListener("click", async () => { try{ await fetch("/hazards/" + h.id, {method:"DELETE", headers:{"X-Admin-Token":S.token}}); }catch(e){} pollHazards(); }); li.appendChild(rm); }
+    list.appendChild(li);
+  });
+}
+async function pollHazards(){
+  if(document.hidden) return;
+  try{
+    const r = await fetch("/hazards"); if(!r.ok) return;
+    const data = await r.json(), sig = JSON.stringify(data.map(h => [h.id, h.kind, h.x, h.y, h.note]));
+    const fresh = data.filter(h => !seenHz.has(h.id));
+    data.forEach(h => seenHz.add(h.id));
+    if(fresh.some(h => h.kind === "fire") && hzReady){            // a new fire: nudge this phone
+      try{ navigator.vibrate && navigator.vibrate([300,150,300]); }catch(e){}
+      document.title = "FIRE! " + baseTitle; setTimeout(() => { document.title = baseTitle; }, 10000);
+    }
+    hzReady = true;
+    HZL = data; renderHz();
+    if(sig !== hzSig){ hzSig = sig; renderStage(); }
+  }catch(e){}
+}
+async function reportHz(kind){
+  if(!S.me){ setInfo("Tap the plan where the problem is first, then send the report."); return; }
+  const headers = {"Content-Type":"application/json"}; if(S.token) headers["X-Admin-Token"] = S.token;
+  try{
+    const r = await fetch("/hazards", {method:"POST", headers, body:JSON.stringify({kind, floor:S.me.floorId, x:S.me.x, y:S.me.y, note:$("hz-note").value, client:clientId})});
+    const j = await r.json().catch(() => ({}));
+    if(!r.ok){ setInfo(j.detail || "The report could not be sent."); return; }
+    $("hz-note").value = "";
+    if(j.status === "pending") setInfo("Fire report received: " + j.have + " of " + j.need + " people. It appears on the plan when a second person reports it. Call 112.");
+    else if(j.status === "known") setInfo("This is already on the plan.");
+    else setInfo(kind === "fire" ? "The fire is now shown on the plan. Call 112." : "The blocked spot is now shown on the plan.");
+    pollHazards();
+  }catch(e){ setInfo("The report could not be sent."); }
+}
+$("hz-block").addEventListener("click", () => reportHz("blocked"));
+$("hz-fire").addEventListener("click", () => reportHz("fire"));
+setInterval(pollHazards, 5000);
+
 /* ---------- QR codes: one per room, scanning sets the position ---------- */
 function roomUrl(floorId, id){ return location.origin + "/?room=" + encodeURIComponent(floorId + "|" + id); }
 function qrSvg(url){ const q = qrcode(0, "M"); q.addData(url); q.make(); return q.createSvgTag({cellSize:6, margin:2, scalable:true}); }
@@ -1093,7 +1178,7 @@ function applyDeepLink(){                            // a scanned QR code opens 
   try{ history.replaceState(null, "", location.pathname); }catch(e){}
 }
 
-Promise.all([loadPlan(), loadZones()]).then(applyDeepLink).then(pollSos); loadAlerts(); setInterval(loadAlerts, 6 * 60 * 60 * 1000);
+Promise.all([loadPlan(), loadZones()]).then(applyDeepLink).then(pollSos).then(pollHazards); loadAlerts(); setInterval(loadAlerts, 6 * 60 * 60 * 1000);
 })();
 </script>
 </body>
