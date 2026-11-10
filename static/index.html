@@ -324,6 +324,7 @@ button{cursor:pointer}
 </div>
 
 <script src="/qrcode.js"></script>
+<script src="/access.js"></script>
 <script>
 (function(){
 "use strict";
@@ -618,7 +619,8 @@ async function ask(text){
   const th = addMsg("thinking", "Searching the documents …");
   const body = {question:text, session_id:S.sessionId, zone:S.me ? null : S.zone, position:S.me ? {floor:S.me.floorId, x:S.me.x, y:S.me.y} : null};
   try{
-    const r = await fetch("/ask", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(body)});
+    const r = await fetch("/ask", {method:"POST", headers:Object.assign({"Content-Type":"application/json"}, accessHeaders()), body:JSON.stringify(body)});    
+    if(r.status === 401) accessRequired("Please enter the access code.");
     if(!r.ok) throw new Error("HTTP " + r.status);
     const data = await r.json();
     th.remove();
@@ -677,7 +679,8 @@ async function toggleRec(){
     const ext = type.indexOf("mp4") >= 0 ? "m4a" : type.indexOf("ogg") >= 0 ? "ogg" : "webm";
     const fd = new FormData(); fd.append("audio", blob, "question." + ext);
     try{
-      const r = await fetch("/transcribe", {method:"POST", body:fd});
+      const r = await fetch("/transcribe", {method:"POST", headers:accessHeaders(), body:fd});
+      if(r.status === 401) accessRequired("Please enter the access code.");
       if(!r.ok) throw new Error("HTTP " + r.status);
       const data = await r.json();
       setStatus("");

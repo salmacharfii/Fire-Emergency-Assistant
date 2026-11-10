@@ -7,7 +7,7 @@ from fastapi.staticfiles import StaticFiles        # serves the web page and the
 from openai import OpenAI                          # for the Whisper call
 from pydantic import BaseModel                     # defines the shape of requests and responses
 
-from config import WHISPER_MODEL, ADMIN_TOKEN, PLAN_IMAGE_DIR, STATIC_DIR   # (this import also loads .env)
+from config import WHISPER_MODEL, ADMIN_TOKEN, PLAN_IMAGE_DIR, STATIC_DIR, ACCESS_CODE   # (this import also loads .env)
 from safety import is_fire_emergency, FIXED_STEPS  # fixed steps
 from agent import run_agent                        # the LangChain agent
 from guard import check_answer, extract_sources    # citation check
@@ -76,6 +76,21 @@ def require_admin(token):                          # stops everybody without the
         raise HTTPException(status_code=403, detail="Plan editing is switched off. Set ADMIN_TOKEN in .env.")
     if not hmac.compare_digest(token or "", ADMIN_TOKEN):   # constant-time compare
         raise HTTPException(status_code=401, detail="Wrong admin token.")
+
+def code_matches(code):                            # constant-time check of the access code
+    return hmac.compare_digest((code or "").encode(), ACCESS_CODE.encode())
+
+
+def require_access(code):                          # stops AI calls without the access code; no code configured = open app
+    if ACCESS_CODE and not code_matches(code):
+        raise HTTPException(status_code=401, detail="Access code required.")
+
+
+@app.get("/access/check")                          # does the page need a code, and is the one it holds right?
+def access_check(x_access_code: str | None = Header(default=None)):
+    if not ACCESS_CODE:
+        return {"required": False, "ok": True}
+    return {"required": True, "ok": code_matches(x_access_code)}
 
 @app.get("/equipment/alerts")                      # GET /equipment/alerts: overdue and soon-due inspections for the banner
 def get_equipment_alerts():
@@ -150,7 +165,8 @@ def upload_plan_image(image: UploadFile = File(...), x_admin_token: str | None =
 
 
 @app.post("/transcribe")                           # POST /transcribe: speech to text
-def transcribe(audio: UploadFile = File(...)):     # the recorded audio arrives as a file upload
+def transcribe(audio: UploadFile = File(...), x_access_code: str | None = Header(default=None)):     # the recorded audio arrives as a file upload
+    require_access(x_access_code)
     data = audio.file.read()                       # the raw bytes
     if len(data) > MAX_AUDIO_BYTES:
         raise HTTPException(status_code=413, detail="The recording is longer than the 25 MB limit.")
@@ -162,7 +178,8 @@ def transcribe(audio: UploadFile = File(...)):     # the recorded audio arrives 
 
 
 @app.post("/ask", response_model=AskResponse)     # POST /ask: the main endpoint
-def ask(req: AskRequest):
+def ask(req: AskRequest, x_access_code: str | None = Header(default=None)):
+    require_access(x_access_code)
     plan = load_plan()                             # the building plan, read fresh so admin edits count at once
     zone, room = req.zone, ""
     if req.position is not None:                   # the user marked a point on the plan

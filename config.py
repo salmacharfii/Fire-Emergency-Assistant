@@ -13,6 +13,7 @@ PLAN_FILE = BASE_DIR / "data" / "plan.json"
 PLAN_IMAGE_DIR = BASE_DIR / "data" / "plan_images" 
 STATIC_DIR = BASE_DIR / "static" 
 ADMIN_TOKEN = os.getenv("ADMIN_TOKEN", "")
+ACCESS_CODE = os.getenv("ACCESS_CODE", "").strip()   # code users type to open the app; empty = the app stays open
 
 CHROMA_DIR = BASE_DIR / "chroma_db"                     # where Chroma saves the index on disk
 COLLECTION_NAME = "fire_safety"         # name of the Chroma collection that holds all chunks
