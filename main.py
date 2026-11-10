@@ -7,30 +7,27 @@ from fastapi.staticfiles import StaticFiles        # serves the web page and the
 from openai import OpenAI                          # for the Whisper call
 from pydantic import BaseModel                     # defines the shape of requests and responses
 
-from config import WHISPER_MODEL, ADMIN_TOKEN, PLAN_IMAGE_DIR, STATIC_DIR, ACCESS_CODE   # (this import also loads .env)
+from config import WHISPER_MODEL, ADMIN_TOKEN, ACCESS_CODE, PLAN_IMAGE_DIR, STATIC_DIR   # (this import also loads .env)
 from safety import is_fire_emergency, FIXED_STEPS  # fixed steps
 from agent import run_agent                        # the LangChain agent
 from guard import check_answer, extract_sources    # citation check
-from tools import equipment_alerts,list_zones, _zone_key, POSITIONS, FOUND, ROUTES, find_nearest   # zone names for the UI, session state for the plan tool
+from tools import equipment_alerts, list_zones, _zone_key, POSITIONS, FOUND, ROUTES, find_nearest   # zone names for the UI, session state for the plan tool
 from plan import load_plan, save_plan, clean_plan, nearest_room   # the building plan
 
-from sos import router as sos_router
-
 app = FastAPI(title="Fire Emergency Assistant")    # the application object that uvicorn runs
-app.include_router(sos_router)
 openai_client = OpenAI()                           # reads OPENAI_API_KEY from the environment; the key stays on the server
 
 MAX_AUDIO_BYTES = 25 * 1024 * 1024                 # the Whisper API accepts files up to 25 MB
 MAX_IMAGE_BYTES = 10 * 1024 * 1024                 # plan images up to 10 MB
 
 
-WHERE_WORDS = re.compile(r"\b(where|nearest|closest|near|find|locate|how (do|can|should) i (get|leave|escape|exit|go))\b", re.IGNORECASE)   # the user asks for a place
+WHERE_WORDS = re.compile(r"\b(where|nearest|closest|near|find|locate|how (do|can|should) i (get|leave|escape|exit|go)|wo ist|wo finde|nächste[rnms]?|naechste[rnms]?|am nächsten|wie komme ich)\b", re.IGNORECASE)   # the user asks for a place
 THING_WORDS = [                                    # what is asked for -> the thing name find_nearest understands; first match wins
-    ("extinguisher", re.compile(r"extinguish", re.IGNORECASE)),
-    ("alarm", re.compile(r"alarm|call point|fire button", re.IGNORECASE)),
-    ("assembly", re.compile(r"assembly|muster|meeting point", re.IGNORECASE)),
-    ("first_aid", re.compile(r"first.?aid|medical|defibrillator|\baed\b", re.IGNORECASE)),
-    ("exit", re.compile(r"\bexits?\b|escape|get out|way out|leave|evacuat|stairs|staircase", re.IGNORECASE)),
+    ("extinguisher", re.compile(r"extinguish|feuerlösch|feuerlosch|löscher", re.IGNORECASE)),
+    ("alarm", re.compile(r"alarm|call point|fire button|melder", re.IGNORECASE)),
+    ("assembly", re.compile(r"assembly|muster|meeting point|sammelplatz|sammelstelle", re.IGNORECASE)),
+    ("first_aid", re.compile(r"first.?aid|medical|defibrillator|\baed\b|erste.?hilfe|defibrillator", re.IGNORECASE)),
+    ("exit", re.compile(r"\bexits?\b|escape|get out|way out|leave|evacuat|stairs|staircase|ausgang|notausgang|ausgänge|fluchtweg|treppe|verlassen", re.IGNORECASE)),
 ]
 
 
@@ -55,6 +52,7 @@ class AskRequest(BaseModel):                       # what the caller sends
     session_id: str                                # one id per browser session, becomes the thread_id
     zone: str | None = None                        # the zone the user picked, if any
     position: Position | None = None               # the point the user marked on the plan, if any
+    lang: str = "en"                               # interface language of the page: "en" or "de"
 
 
 class Source(BaseModel):                           # one cited source
@@ -77,6 +75,7 @@ def require_admin(token):                          # stops everybody without the
     if not hmac.compare_digest(token or "", ADMIN_TOKEN):   # constant-time compare
         raise HTTPException(status_code=401, detail="Wrong admin token.")
 
+
 def code_matches(code):                            # constant-time check of the access code
     return hmac.compare_digest((code or "").encode(), ACCESS_CODE.encode())
 
@@ -86,11 +85,12 @@ def require_access(code):                          # stops AI calls without the 
         raise HTTPException(status_code=401, detail="Access code required.")
 
 
-@app.get("/access/check")                          # does the page need a code, and is the one it holds right?
+@app.get("/access/check")                          # GET /access/check: does the page need a code, and is the one it holds right?
 def access_check(x_access_code: str | None = Header(default=None)):
     if not ACCESS_CODE:
         return {"required": False, "ok": True}
     return {"required": True, "ok": code_matches(x_access_code)}
+
 
 @app.get("/equipment/alerts")                      # GET /equipment/alerts: overdue and soon-due inspections for the banner
 def get_equipment_alerts():
@@ -98,6 +98,7 @@ def get_equipment_alerts():
         return equipment_alerts(30)
     except (OSError, ValueError):                  # no equipment file: no alerts
         return []
+
 
 @app.get("/zones")                                 # GET /zones for the UI drop-down
 def zones():
@@ -166,7 +167,7 @@ def upload_plan_image(image: UploadFile = File(...), x_admin_token: str | None =
 
 @app.post("/transcribe")                           # POST /transcribe: speech to text
 def transcribe(audio: UploadFile = File(...), x_access_code: str | None = Header(default=None)):     # the recorded audio arrives as a file upload
-    require_access(x_access_code)
+    require_access(x_access_code)                  # no code, no Whisper call
     data = audio.file.read()                       # the raw bytes
     if len(data) > MAX_AUDIO_BYTES:
         raise HTTPException(status_code=413, detail="The recording is longer than the 25 MB limit.")
@@ -179,7 +180,7 @@ def transcribe(audio: UploadFile = File(...), x_access_code: str | None = Header
 
 @app.post("/ask", response_model=AskResponse)     # POST /ask: the main endpoint
 def ask(req: AskRequest, x_access_code: str | None = Header(default=None)):
-    require_access(x_access_code)
+    require_access(x_access_code)                  # no code, no OpenAI call
     plan = load_plan()                             # the building plan, read fresh so admin edits count at once
     zone, room = req.zone, ""
     if req.position is not None:                   # the user marked a point on the plan
@@ -198,14 +199,8 @@ def ask(req: AskRequest, x_access_code: str | None = Header(default=None)):
     thing = wanted_thing(req.question, bool(steps)) if req.position is not None else None
     if thing:                                      # run the plan lookup in code, so the route is always found and drawn
         lookup = find_nearest.invoke({"thing": thing}, config={"configurable": {"thread_id": req.session_id}})
-    raw = run_agent(req.question, req.session_id, zone, room, req.position is not None, lookup)   # the agent picks tools and answers
+    raw = run_agent(req.question, req.session_id, zone, room, req.position is not None, lookup, "de" if req.lang == "de" else "en")   # the agent picks tools and answers
     answer, mode = check_answer(raw)               # guard: citation present or refuse
-    if mode == "refused" and raw.strip() != "NO_ANSWER":   # the model answered but forgot the citations: ask once more
-        retry = req.question + "\n\n(Answer again. End every sentence or step with its citation in square brackets, copied from the passage label.)"
-        raw = run_agent(retry, req.session_id, zone, room, req.position is not None, lookup)
-        answer, mode = check_answer(raw)
-    if steps and mode == "refused":                # a fire emergency: the fixed steps are the answer, not the refusal text
-        answer = "Follow the steps above. In an emergency call 112."
     sources = [Source(**s) for s in extract_sources(answer)] if mode == "answer" else []   # sources only for real answers
     highlights = FOUND.pop(req.session_id, []) if mode == "answer" else []   # only for answers that passed the guard
     route = ROUTES.pop(req.session_id, []) if mode == "answer" else []

@@ -322,8 +322,9 @@ button{cursor:pointer}
 
   <p class="foot">This page gives general guidance from approved documents and does not replace the fire service or medical care. Distances on the plan are estimates. When in doubt: leave the danger area and call 112.</p>
 </div>
-<script src="/i18n.js"></script>
+
 <script src="/qrcode.js"></script>
+<script src="/i18n.js"></script>
 <script src="/access.js"></script>
 <script>
 (function(){
@@ -608,7 +609,7 @@ function addMsg(kind, text, extra){
 }
 function say(text){
   if(!speakOn || !("speechSynthesis" in window)) return;
-  try{ window.speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(text.replace(/\[[^\]]*\]/g,"").replace(/\n+/g,". ")); u.lang = "en-US"; window.speechSynthesis.speak(u); }catch(e){}
+  try{ window.speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(text.replace(/\[[^\]]*\]/g,"").replace(/\n+/g,". ")); u.lang = (window.I18N && I18N.lang === "de") ? "de-DE" : "en-US"; window.speechSynthesis.speak(u); }catch(e){}
 }
 async function ask(text){
   text = (text||"").trim();
@@ -617,9 +618,9 @@ async function ask(text){
   addMsg("me", text);
   input.value = ""; input.style.height = "";
   const th = addMsg("thinking", "Searching the documents …");
-  const body = {question:text, session_id:S.sessionId, zone:S.me ? null : S.zone, position:S.me ? {floor:S.me.floorId, x:S.me.x, y:S.me.y} : null};
+  const body = {question:text, session_id:S.sessionId, zone:S.me ? null : S.zone, position:S.me ? {floor:S.me.floorId, x:S.me.x, y:S.me.y} : null, lang:(window.I18N ? I18N.lang : "en")};
   try{
-    const r = await fetch("/ask", {method:"POST", headers:Object.assign({"Content-Type":"application/json"}, accessHeaders()), body:JSON.stringify(body)});    
+    const r = await fetch("/ask", {method:"POST", headers:Object.assign({"Content-Type":"application/json"}, accessHeaders()), body:JSON.stringify(body)});
     if(r.status === 401) accessRequired("Please enter the access code.");
     if(!r.ok) throw new Error("HTTP " + r.status);
     const data = await r.json();
@@ -1065,7 +1066,7 @@ function escHtml(s){ return String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<"
 function printQr(rooms){                             // prints a sheet in this page (no pop-up window, so nothing can block it)
   if(typeof qrcode !== "function"){ setInfo("The QR library is missing. Upload static/qrcode.js to your project and redeploy."); return; }
   if(!rooms.length){ setInfo("No room has a label yet. Select a room marker, give it a label, then try again."); return; }
-  if(/^(localhost|127\.)/.test(location.hostname) && !confirm(I18N.tr("You opened … Print anyway?"))) return;
+  if(/^(localhost|127\.)/.test(location.hostname) && !confirm(I18N.tr("You opened the app on this computer (" + location.host + "). The QR codes would only work here. Open the live web address and print from there. Print anyway?"))) return;
   try{
     const many = S.plan.floors.length > 1, sheet = $("printsheet");
     sheet.textContent = "";

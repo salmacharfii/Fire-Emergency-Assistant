@@ -41,7 +41,7 @@ agent = create_agent(                              # one agent object, created o
 )
 
 
-def run_agent(question, session_id, zone=None, room=None, has_position=False, lookup=None):    # one user turn in, answer text out
+def run_agent(question, session_id, zone=None, room=None, has_position=False, lookup=None, lang="en"):   # one user turn in, answer text out
     lines = []                                     # context lines in front of the question
     if has_position:                               # the user tapped the plan
         where = f", nearest room: {room}" if room else ""
@@ -50,6 +50,8 @@ def run_agent(question, session_id, zone=None, room=None, has_position=False, lo
         lines.append(f"[User is in zone: {zone}]")
     if lookup:                                     # the plan lookup the server already ran for this question
         lines.append(f"[Plan lookup, already done for this question; treat it as a tool result and cite [plan.json]: {lookup}]")
+    if lang == "de":
+        lines.append("[Answer in German. Keep every source citation in square brackets exactly as written, and keep place names from the plan unchanged.]")
     text = "\n".join(lines + [question])           # context first, then the question
     result = agent.invoke(                         # run the tool loop until the agent has an answer
         {"messages": [{"role": "user", "content": text}]},   # the new message
