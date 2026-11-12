@@ -16,7 +16,7 @@ from plan import load_plan, save_plan, clean_plan, nearest_room   # the building
 from sos import router as sos_router               # SOS for trapped people
 from hazards import router as hazards_router       # blocked exits/paths and fire sources
 
-app = FastAPI(title="Fire Emergency Assistant")    # the application object that uvicorn runs
+app = FastAPI(title="EmberAid")    # the application object that uvicorn runs
 app.include_router(sos_router)                     # adds /sos
 app.include_router(hazards_router)                 # adds /hazards
 openai_client = OpenAI()                           # reads OPENAI_API_KEY from the environment; the key stays on the server

@@ -18,7 +18,7 @@
     var wrap = el("div", "position:fixed;inset:0;z-index:99999;background:#0d0f12;display:flex;align-items:center;justify-content:center;padding:16px;font-family:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif");
     wrap.setAttribute("role", "dialog"); wrap.setAttribute("aria-modal", "true"); wrap.setAttribute("aria-labelledby", "fa-acc-title");
     var card = el("form", "width:100%;max-width:380px;background:#1b212a;border:1px solid #2f3946;border-radius:12px;padding:24px;display:flex;flex-direction:column;gap:14px;color:#ecEFF3");
-    var title = el("h1", "margin:0;font-size:1.25rem", "Fire Emergency Assistant"); title.id = "fa-acc-title";
+    var title = el("h1", "margin:0;font-size:1.25rem", "EmberAid"); title.id = "fa-acc-title";
     var lead = el("p", "margin:0;color:#aab3bf;line-height:1.45", "Enter the access code from your company to open the assistant.");
     var label = el("label", "font-size:.9rem;color:#aab3bf", "Access code"); label.setAttribute("for", "fa-acc-input");
     var input = el("input", "font:inherit;padding:12px;border-radius:8px;border:1px solid #4a5666;background:#12161c;color:#ecEFF3;min-height:44px");

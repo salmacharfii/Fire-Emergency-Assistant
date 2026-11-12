@@ -10,7 +10,6 @@
   /* ---------- whole texts: English -> German ---------- */
   var D = {
     // page header and emergency band
-    "Fire Emergency Assistant": "Brandschutz-Assistent",
     "Answers from your site's approved documents and building plan. Type or speak.": "Antworten aus den freigegebenen Dokumenten und dem Gebäudeplan Ihres Standorts. Tippen oder sprechen Sie.",
     "Extinguisher training": "Löschertraining",
     "Edit plan": "Plan bearbeiten",
@@ -117,7 +116,15 @@
     "Scan to mark where you are.": "Scannen, um Ihren Standort zu markieren.",
     "Fire: leave the building and call": "Feuer: Gebäude verlassen, Notruf",
 
+    "Menu": "Menü",
+    "Close menu": "Menü schließen",
     // blocked exits and fire reports
+    "Optional note: what is happening?": "Optional: Was ist passiert?",
+    "Blocked exit/path": "Ausgang/Weg blockiert",
+    "Fire here": "Feuer hier",
+    "Tap the plan where you are first. Reports are shown to everyone and do not call anyone: call 112 too.": "Tippen Sie zuerst auf den Plan, wo Sie sind. Meldungen sehen alle und rufen niemanden an: Rufen Sie auch die 112 an.",
+    "How reports work": "So funktionieren Meldungen",
+    "SOS and reports": "SOS und Meldungen",
     "Report blocked exit or path": "Blockierten Ausgang oder Weg melden",
     "Report fire here": "Feuer hier melden",
     "Optional: what is blocked or burning?": "Optional: Was ist blockiert oder brennt?",
@@ -533,6 +540,8 @@
     var b = document.createElement("button");
     b.type = "button"; b.id = "fa-lang-btn"; b.className = "btn"; b.setAttribute("data-notr", "");
     b.addEventListener("click", function () { setLang(lang === "de" ? "en" : "de", true); });
+    var tools = document.getElementById("menu-tools");
+    if (tools) { tools.insertBefore(b, tools.firstChild); return; }
     var head = document.querySelector("header.top"), box = head && head.querySelector("div:last-of-type");
     if (head && box && head.children.length > 1 && box.querySelector("a,button")) box.insertBefore(b, box.firstChild);
     else if (head) head.appendChild(b);

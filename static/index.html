@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Fire Emergency Assistant</title>
+<title>EmberAid</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Public+Sans:wght@400;500;600&display=swap">
@@ -42,6 +42,15 @@ button{cursor:pointer}
   #printsheet .qr{width:220px;margin:8px auto}#printsheet .qr svg{width:100%;height:auto}#printsheet p{margin:6px 0;font-size:14px}
 }
 
+.menubtn{font-size:.95rem}
+.scrim{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:90}
+.drawer{position:fixed;top:0;right:0;bottom:0;width:min(320px,86vw);background:var(--surface);border-left:1px solid var(--line);box-shadow:-8px 0 24px rgba(0,0,0,.25);z-index:100;display:flex;flex-direction:column;gap:14px;padding:calc(14px + env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) calc(14px + env(safe-area-inset-bottom,0px)) 16px;transform:translateX(105%);visibility:hidden;transition:transform .22s ease,visibility 0s .22s;overflow-y:auto}
+.drawer.open{transform:none;visibility:visible;transition:transform .22s ease}
+.drawerhead{display:flex;justify-content:space-between;align-items:center;font-family:var(--display);font-size:1.3rem;text-transform:uppercase;letter-spacing:.04em}
+.drawerhead .btn{font-size:1.4rem;line-height:1;min-width:44px;min-height:44px}
+#menu-tools{display:flex;flex-direction:column;gap:8px}
+#menu-tools .btn{width:100%;text-align:left;min-height:46px;font-size:1rem;padding:8px 14px}
+@media (prefers-reduced-motion: reduce){.drawer,.drawer.open{transition:none}}
 .sosbox{background:var(--surface);border:2px solid var(--fire);border-radius:10px;padding:12px 14px;display:flex;flex-direction:column;gap:10px}
 .sosbox .srow{display:flex;flex-wrap:wrap;gap:8px}
 .sosbox .srow input{flex:1 1 220px;min-width:0;padding:10px 12px;border:1px solid var(--line);border-radius:6px;background:var(--bg);min-height:44px}
@@ -52,21 +61,28 @@ button{cursor:pointer}
 .sosbox li{border:1px solid var(--fire);border-radius:8px;padding:8px 10px;background:var(--warn-bg);display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center}
 .sosbox li .t{flex:1 1 200px;min-width:0}
 .sosbox li button{border:1px solid var(--fire);background:var(--surface);color:var(--fg);border-radius:6px;padding:6px 10px;min-height:36px}
-.hzbox{background:var(--surface);border:2px solid var(--line);border-radius:10px;padding:12px 14px;display:flex;flex-direction:column;gap:10px}
-.hzbox .srow{display:flex;flex-wrap:wrap;gap:8px}
-.hzbox .srow input{flex:1 1 220px;min-width:0;padding:10px 12px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--fg);min-height:44px}
-.hzbox .hbtn{background:var(--surface);color:var(--fg);border:2px solid var(--fg);border-radius:6px;padding:10px 14px;font-weight:700;min-height:44px}
-.hzbox .hbtn.fire{background:var(--fire);color:var(--fire-ink);border-color:var(--fire)}
-.hzbox .small{margin:0;font-size:.85rem;color:var(--muted)}
-.hzbox ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
-.hzbox li{border:1px solid var(--line);border-radius:8px;padding:8px 10px;display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center}
-.hzbox li.fire{border-color:var(--fire);background:var(--warn-bg)}
-.hzbox li .t{flex:1 1 200px;min-width:0}
-.hzbox li button{border:1px solid var(--line);background:var(--surface);color:var(--fg);border-radius:6px;padding:6px 10px;min-height:36px}
 .hztag{position:absolute;transform:translate(-50%,-50%);font-weight:800;font-size:.75rem;border:2px solid #fff;border-radius:6px;padding:2px 7px;pointer-events:none;z-index:6;background:#111;color:#fff;white-space:nowrap}
 .hztag.fire{background:var(--fire);color:var(--fire-ink)}
 .hzring{position:absolute;transform:translate(-50%,-50%);aspect-ratio:1;border-radius:50%;pointer-events:none;z-index:2;border:2px dashed var(--fire);background:rgba(214,58,20,.18)}
 .hzring.blocked{border-color:#111;background:repeating-linear-gradient(45deg,rgba(0,0,0,.28) 0 6px,rgba(255,200,0,.35) 6px 12px)}
+.sosbox .srow{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.sosbox .srow input{grid-column:1/-1}
+.sosbox #sos-send{display:contents}
+.sosbox .sbtn,.sosbox .hbtn{padding:8px 6px;font-size:.88rem;line-height:1.15}
+@media(min-width:760px){.sosbox .srow{grid-template-columns:minmax(200px,2fr) repeat(3,auto)}.sosbox .srow input{grid-column:auto}.sosbox .sbtn,.sosbox .hbtn{padding:10px 14px;font-size:1rem}}
+.sosbox li{padding:6px 10px}
+.sosbox li .t{flex:1 1 140px}
+.sosbox li button{white-space:nowrap;min-height:32px;padding:4px 10px}
+.sosbox .hbtn{background:var(--surface);color:var(--fg);border:2px solid var(--fg);border-radius:6px;padding:10px 14px;font-weight:700;min-height:44px}
+.sosbox .hbtn.fire{background:var(--fire);color:var(--fire-ink);border-color:var(--fire)}
+.sosbox ul:empty{display:none}
+.sosbox summary{cursor:pointer;font-size:.85rem;color:var(--muted)}
+.sosbox details p{margin:6px 0 0}
+#hz-list li{border-color:var(--line);background:var(--surface)}
+#hz-list li.fire{border-color:var(--fire);background:var(--warn-bg)}
+.call{padding:8px 16px!important;gap:6px 16px!important}
+.call .num{font-size:2.4rem!important}
+.call .txt small{font-size:.78rem}
 .sostag{position:absolute;transform:translate(-50%,-50%);background:var(--fire);color:var(--fire-ink);font-weight:800;font-size:.8rem;border:2px solid #fff;border-radius:999px;padding:3px 9px;pointer-events:none;z-index:6;box-shadow:0 0 0 0 rgba(214,58,20,.7);animation:sospulse 1.4s infinite}
 @keyframes sospulse{70%{box-shadow:0 0 0 14px rgba(214,58,20,0)}100%{box-shadow:0 0 0 0 rgba(214,58,20,0)}}
 @media (prefers-reduced-motion: reduce){.sostag{animation:none}}
@@ -196,14 +212,21 @@ button{cursor:pointer}
 <div class="wrap">
   <header class="top">
     <div class="brand">
-      <h1>Fire Emergency Assistant</h1>
+      <h1>EmberAid</h1>
       <p>Answers from your site's approved documents and building plan. Type or speak.</p>
     </div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap">
-      <a class="btn" href="/extinguisher.html" style="text-decoration:none;display:inline-flex;align-items:center">Extinguisher training</a>
+    <button class="btn menubtn" id="menubtn" type="button" aria-expanded="false" aria-controls="drawer"><span aria-hidden="true">&#9776;</span> Menu</button>
+  </header>
+
+  <div class="scrim" id="scrim" hidden></div>
+  <aside class="drawer" id="drawer" aria-label="Menu" aria-hidden="true">
+    <div class="drawerhead"><b>Menu</b><button class="btn" id="menuclose" type="button" aria-label="Close menu">&times;</button></div>
+    <div id="menu-tools">
+      <a class="btn" href="/extinguisher.html" style="text-decoration:none;display:flex;align-items:center">Extinguisher training</a>
       <button class="btn" id="editbtn" type="button" aria-pressed="false">Edit plan</button>
     </div>
-  </header>
+  </aside>
+
 
   <details class="alerts" id="alerts" hidden open>
     <summary><span class="badge" id="alertcount">0</span><span id="alerttitle">Inspections due</span></summary>
@@ -216,30 +239,22 @@ button{cursor:pointer}
     <a href="tel:112">Call 112</a>
   </section>
 
-  <section class="sosbox" id="sosbox" aria-label="SOS for people who are trapped">
+  <section class="sosbox" id="sosbox" aria-label="SOS and reports">
     <div id="sos-own" hidden>
       <b id="sos-own-text"></b>
       <div class="srow" style="margin-top:6px"><button class="sbtn" id="sos-cancel" type="button">Cancel my SOS</button></div>
     </div>
-    <div id="sos-send">
-      <div class="srow">
-        <input id="sos-note" type="text" maxlength="120" placeholder="Optional: what is happening? (door blocked, smoke, injured)" aria-label="What is happening">
-        <button class="sbtn" id="sos-btn" type="button">I am trapped: send SOS</button>
-      </div>
-      <p class="small">First tap the plan where you are. Your SOS is shown to everyone using this app. It does not call anyone: call 112 as well.</p>
+    <div class="srow">
+      <input id="sos-note" type="text" maxlength="120" placeholder="Optional note: what is happening?" aria-label="What is happening">
+      <span id="sos-send"><button class="sbtn" id="sos-btn" type="button">I am trapped: send SOS</button></span>
+      <button class="hbtn" id="hz-block" type="button">Blocked exit/path</button>
+      <button class="hbtn fire" id="hz-fire" type="button">Fire here</button>
     </div>
+    <p class="small">Tap the plan where you are first. Reports are shown to everyone and do not call anyone: call 112 too.</p>
     <ul id="sos-list" aria-live="polite"></ul>
     <p class="small" id="sos-warn" hidden>Only help if it is safe. Never enter smoke or fire. Call 112 and tell them where the person is.</p>
-  </section>
-
-  <section class="hzbox" id="hzbox" aria-label="Report a blocked exit or a fire">
-    <div class="srow">
-      <input id="hz-note" type="text" maxlength="120" placeholder="Optional: what is blocked or burning?" aria-label="What is blocked or burning">
-      <button class="hbtn" id="hz-block" type="button">Report blocked exit or path</button>
-      <button class="hbtn fire" id="hz-fire" type="button">Report fire here</button>
-    </div>
-    <p class="small" id="hz-help">First tap the plan where the problem is. Blocked spots appear for everyone at once. A fire appears after a second person reports it nearby (the admin's report counts at once). Routes and answers avoid them. Only the admin can clear a report.</p>
     <ul id="hz-list" aria-live="polite"></ul>
+    <details><summary>How reports work</summary><p class="small" id="hz-help">First tap the plan where the problem is. Blocked spots appear for everyone at once. A fire appears after a second person reports it nearby (the admin's report counts at once). Routes and answers avoid them. Only the admin can clear a report.</p></details>
   </section>
 
   <div class="site" id="siteinfo" hidden></div>
@@ -1130,10 +1145,10 @@ async function reportHz(kind){
   if(!S.me){ setInfo("Tap the plan where the problem is first, then send the report."); return; }
   const headers = {"Content-Type":"application/json"}; if(S.token) headers["X-Admin-Token"] = S.token;
   try{
-    const r = await fetch("/hazards", {method:"POST", headers, body:JSON.stringify({kind, floor:S.me.floorId, x:S.me.x, y:S.me.y, note:$("hz-note").value, client:clientId})});
+    const r = await fetch("/hazards", {method:"POST", headers, body:JSON.stringify({kind, floor:S.me.floorId, x:S.me.x, y:S.me.y, note:$("sos-note").value, client:clientId})});
     const j = await r.json().catch(() => ({}));
     if(!r.ok){ setInfo(j.detail || "The report could not be sent."); return; }
-    $("hz-note").value = "";
+    $("sos-note").value = "";
     if(j.status === "pending") setInfo("Fire report received: " + j.have + " of " + j.need + " people. It appears on the plan when a second person reports it. Call 112.");
     else if(j.status === "known") setInfo("This is already on the plan.");
     else setInfo(kind === "fire" ? "The fire is now shown on the plan. Call 112." : "The blocked spot is now shown on the plan.");
@@ -1143,6 +1158,23 @@ async function reportHz(kind){
 $("hz-block").addEventListener("click", () => reportHz("blocked"));
 $("hz-fire").addEventListener("click", () => reportHz("fire"));
 setInterval(pollHazards, 5000);
+
+
+/* ---------- side menu ---------- */
+(function(){
+  const dr = $("drawer"), sc = $("scrim"), mb = $("menubtn");
+  function setMenu(open){
+    dr.classList.toggle("open", open); dr.setAttribute("aria-hidden", open ? "false" : "true"); sc.hidden = !open;
+    mb.setAttribute("aria-expanded", open ? "true" : "false");
+    if(open) $("menuclose").focus(); else if(dr.contains(document.activeElement)) mb.focus();
+  }
+  mb.addEventListener("click", () => setMenu(true));
+  $("menuclose").addEventListener("click", () => setMenu(false));
+  sc.addEventListener("click", () => setMenu(false));
+  document.addEventListener("keydown", e => { if(e.key === "Escape" && dr.classList.contains("open")) setMenu(false); });
+  $("editbtn").addEventListener("click", () => setMenu(false));       // the editor opens behind the menu: close it
+  dr.addEventListener("click", e => { if(e.target.closest("#fa-lang-btn")) setMenu(false); });
+})();
 
 /* ---------- QR codes: one per room, scanning sets the position ---------- */
 function roomUrl(floorId, id){ return location.origin + "/?room=" + encodeURIComponent(floorId + "|" + id); }
